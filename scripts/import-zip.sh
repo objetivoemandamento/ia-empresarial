@@ -15,11 +15,14 @@ if ! command -v unzip >/dev/null 2>&1; then
   echo "ERRO: o comando unzip não está instalado." >&2
   exit 1
 fi
+if ! command -v rsync >/dev/null 2>&1; then
+  echo "ERRO: o comando rsync não está instalado." >&2
+  exit 1
+fi
 
 unzip -q "$ARCHIVE" -d "$TMP"
 SOURCE="$TMP/ia-empresarial"
 if [[ ! -d "$SOURCE" ]]; then
-  # Aceita ZIPs cujo conteúdo já esteja na raiz.
   SOURCE="$TMP"
 fi
 if [[ ! -f "$SOURCE/package.json" || ! -d "$SOURCE/frontend" || ! -d "$SOURCE/backend" ]]; then
@@ -28,8 +31,9 @@ if [[ ! -f "$SOURCE/package.json" || ! -d "$SOURCE/frontend" || ! -d "$SOURCE/ba
 fi
 
 echo "Importando arquivos do pacote para: $ROOT"
-# Não copiar segredos, dependências instaladas ou artefatos de compilação.
-rsync -a --delete-excluded \
+# Não copia segredos, dependências instaladas ou artefatos de compilação.
+# Não usa --delete: arquivos existentes no repositório não serão apagados automaticamente.
+rsync -a \
   --exclude='.git/' \
   --exclude='node_modules/' \
   --exclude='.env' \
@@ -46,4 +50,4 @@ echo "Importação concluída. Nenhum commit ou push foi feito automaticamente."
 echo "Revise antes de publicar:"
 echo "  git status --short"
 echo "  git diff --stat"
-echo "  git add -A && git commit -m 'Importa Modular AI Workspace' && git push origin main"
+echo "  git add -A && git commit -m 'Importa Modular AI Workspace' && git push origin main'"
