@@ -42,7 +42,20 @@ def require_admin(authorization: Annotated[str | None, Header()] = None) -> None
 
 @app.get("/api/health")
 async def health():
-    return {"ok": True, "language_default": "pt", "supported_languages": sorted(ALLOWED_LANGUAGES)}
+    llm_ready = bool(
+        settings.llm_base_url.strip()
+        and settings.llm_api_key.strip()
+        and settings.llm_model.strip()
+    )
+    return {
+        "ok": True,
+        "language_default": "pt",
+        "supported_languages": sorted(ALLOWED_LANGUAGES),
+        "llm_ready": llm_ready,
+        "llm_mode": "configured" if llm_ready else "demo",
+        "llm_model": settings.llm_model if llm_ready else None,
+        "transcription_ready": bool(settings.openai_api_key.strip()),
+    }
 
 @app.post("/api/repositories/upload")
 async def upload_repository(file: UploadFile = File(...), _: None = Depends(require_admin)):
