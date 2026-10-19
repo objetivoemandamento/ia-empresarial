@@ -12,11 +12,16 @@ from .llm import LLMEngine, LLMUnavailable
 from .repository_manager import SkillManager, SkillError
 from .schemas import ChatRequest, ChatResponse
 from .security import UnsafeArchive
+from .human_tasks import (
+    HumanTaskStore, TaskCreate, TaskUpdate, TaskDecision, TaskCompletion,
+    TaskStatusChange, TaskError,
+)
 
 settings = get_settings()
 settings.data_dir.mkdir(parents=True, exist_ok=True)
 skill_manager = SkillManager(settings)
 llm = LLMEngine(settings)
+task_store = HumanTaskStore(settings.data_dir / "human_tasks.sqlite3")
 
 app = FastAPI(title="Modular AI Platform API", version="0.1.0")
 app.add_middleware(
@@ -134,3 +139,50 @@ async def transcribe(
     except AudioUnavailable as exc:
         raise HTTPException(status_code=503, detail=str(exc)) from exc
     return {"text": text, "language": language}
+
+
+def _task_call(action, *args):
+    try:
+        return action(*args)
+    except TaskError as exc:
+        raise HTTPException(status_code=exc.status_code, detail=exc.message) from exc
+
+
+@app.get("/api/human-tasks", dependencies=[Depends(require_admin)])
+async def list_human_tasks(status: str | None = None, owner: str | None = None):
+    return {"tasks": _task_call(task_store.list, status, owner)}
+
+
+@app.post("/api/human-tasks", status_code=201, dependencies=[Depends(require_admin)])
+async def create_human_task(request: TaskCreate):
+    return {"task": _task_call(task_store.create, request, "admin")}
+
+
+@app.get("/api/human-tasks/{task_id}", dependencies=[Depends(require_admin)])
+async def get_human_task(task_id: str):
+    return {"task": _task_call(task_store.get, task_id)}
+
+
+@app.patch("/api/human-tasks/{task_id}", dependencies=[Depends(require_admin)])
+async def update_human_task(task_id: str, request: TaskUpdate):
+    return {"task": _task_call(task_store.update, task_id, request, "admin")}
+
+
+@app.post("/api/human-tasks/{task_id}/status", dependencies=[Depends(require_admin)])
+async def change_human_task_status(task_id: str, request: TaskStatusChange):
+    return {"task": _task_call(task_store.set_status, task_id, request.status, "admin", request.note)}
+
+
+@app.post("/api/human-tasks/{task_id}/decision", dependencies=[Depends(require_admin)])
+async def decide_human_task(task_id: str, request: TaskDecision):
+    return {"task": _task_call(task_store.decide, task_id, request, "admin")}
+
+
+@app.post("/api/human-tasks/{task_id}/complete", dependencies=[Depends(require_admin)])
+async def complete_human_task(task_id: str, request: TaskCompletion):
+    return {"task": _task_call(task_store.complete, task_id, request, "admin")}
+
+
+@app.get("/api/human-tasks/{task_id}/history", dependencies=[Depends(require_admin)])
+async def human_task_history(task_id: str):
+    return {"events": _task_call(task_store.history, task_id)}
