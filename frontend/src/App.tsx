@@ -29,12 +29,15 @@ export default function App() {
   const [voiceStatus, setVoiceStatus] = useState('Pronto para ouvir');
   const [recording, setRecording] = useState(false);
   const [serverRecording, setServerRecording] = useState(false);
-  const [apiOnline, setApiOnline] = useState<boolean | null>(null);\n  const [llmReady, setLlmReady] = useState<boolean | null>(null);
+  const [apiOnline, setApiOnline] = useState<boolean | null>(null);
+  const [llmReady, setLlmReady] = useState<boolean | null>(null);
   const [activities, setActivities] = useState<Activity[]>([{ id: 1, time: clock(), label: 'Escritório iniciado', detail: 'Interface pronta em português', tone: 'green' }]);
   const [tasks, setTasks] = useState<HumanTask[]>([]);
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
-  const [taskOwner, setTaskOwner] = useState('');\n  const [taskDueAt, setTaskDueAt] = useState('');\n  const [taskDependencies, setTaskDependencies] = useState<string[]>([]);
+  const [taskOwner, setTaskOwner] = useState('');
+  const [taskDueAt, setTaskDueAt] = useState('');
+  const [taskDependencies, setTaskDependencies] = useState<string[]>([]);
   const [taskPriority, setTaskPriority] = useState<HumanTaskPriority>('normal');
   const [taskRequiresApproval, setTaskRequiresApproval] = useState(false);
   const [taskFilter, setTaskFilter] = useState('all');
@@ -232,7 +235,8 @@ export default function App() {
       <nav className="rail-nav" aria-label="Navegação do escritório">
         <a className="rail-link selected" href="#top" title="Escritório"><span>▦</span><small>Escritório</small></a>
         <a className="rail-link" href="#conversation" title="Conversa"><span>▤</span><small>Conversa</small></a>
-        <a className="rail-link" href="#skills" title="Capacidades"><span>⌘</span><small>Skills</small></a>\n        <a className="rail-link" href="#human-tasks" title="Minhas tarefas"><span>✓</span><small>Tarefas</small></a>
+        <a className="rail-link" href="#skills" title="Capacidades"><span>⌘</span><small>Skills</small></a>
+        <a className="rail-link" href="#human-tasks" title="Minhas tarefas"><span>✓</span><small>Tarefas</small></a>
         <a className="rail-link" href="#voice" title="Voz"><span>♫</span><small>Voz</small></a>
       </nav>
       <div className="rail-bottom"><span className={`connection-dot ${apiOnline ? 'online' : apiOnline === false ? 'offline' : ''}`} title={apiOnline ? 'API conectada' : 'A verificar API'} /><small>{apiOnline ? 'API' : apiOnline === false ? 'Offline' : '…'}</small></div>
