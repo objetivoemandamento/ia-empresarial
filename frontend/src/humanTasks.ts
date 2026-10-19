@@ -46,6 +46,7 @@ export async function listHumanTasks(token: string): Promise<HumanTask[]> {
 export async function createHumanTask(token: string, payload: {
   title: string; description: string; owner?: string | null;
   priority: HumanTaskPriority; requires_approval: boolean;
+  due_at?: string | null; dependencies?: string[];
 }) {
   const result = await request<{task: HumanTask}>('/api/human-tasks', token, {
     method: 'POST', body: JSON.stringify(payload),
