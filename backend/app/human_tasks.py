@@ -278,6 +278,8 @@ class HumanTaskStore:
                 changes["description"] = ""
             if "priority" in changes and changes["priority"] is None:
                 changes.pop("priority")
+            if not changes:
+                return self._serialize(row)
             fields = list(changes)
             values = [changes[field] for field in fields]
             values.extend([_now(), task_id])
