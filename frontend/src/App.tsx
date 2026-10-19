@@ -34,7 +34,7 @@ export default function App() {
   const [tasks, setTasks] = useState<HumanTask[]>([]);
   const [taskTitle, setTaskTitle] = useState('');
   const [taskDescription, setTaskDescription] = useState('');
-  const [taskOwner, setTaskOwner] = useState('');
+  const [taskOwner, setTaskOwner] = useState('');\n  const [taskDueAt, setTaskDueAt] = useState('');\n  const [taskDependencies, setTaskDependencies] = useState<string[]>([]);
   const [taskPriority, setTaskPriority] = useState<HumanTaskPriority>('normal');
   const [taskRequiresApproval, setTaskRequiresApproval] = useState(false);
   const [taskFilter, setTaskFilter] = useState('all');
@@ -67,8 +67,10 @@ export default function App() {
         title: taskTitle.trim(), description: taskDescription.trim(),
         owner: taskOwner.trim() || null, priority: taskPriority,
         requires_approval: taskRequiresApproval,
+        due_at: taskDueAt ? new Date(taskDueAt).toISOString() : null,
+        dependencies: taskDependencies,
       });
-      setTaskTitle(''); setTaskDescription(''); setTaskOwner('');
+      setTaskTitle(''); setTaskDescription(''); setTaskOwner(''); setTaskDueAt(''); setTaskDependencies([]);
       setTaskRequiresApproval(false); setTaskError('');
       await refreshTasks();
       addActivity('Tarefa criada', taskTitle.trim(), 'green');
@@ -290,6 +292,10 @@ export default function App() {
             <label className="field">Responsável<input value={taskOwner} onChange={e => setTaskOwner(e.target.value)} maxLength={120} placeholder="Pessoa responsável" /></label>
             <label className="field">Prioridade<select value={taskPriority} onChange={e => setTaskPriority(e.target.value as HumanTaskPriority)}><option value="low">Baixa</option><option value="normal">Normal</option><option value="high">Alta</option><option value="urgent">Urgente</option></select></label>
           </div>
+          <div className="task-fields-row">
+            <label className="field">Prazo<input type="datetime-local" value={taskDueAt} onChange={e => setTaskDueAt(e.target.value)} /></label>
+            <label className="field">Dependências<select multiple value={taskDependencies} onChange={e => setTaskDependencies(Array.from(e.target.selectedOptions, option => option.value))} aria-label="Dependências da tarefa">{tasks.filter(task => !['done', 'rejected', 'cancelled'].includes(task.status)).map(task => <option key={task.id} value={task.id}>{task.title}</option>)}</select></label>
+          </div>
           <label className="check"><input type="checkbox" checked={taskRequiresApproval} onChange={e => setTaskRequiresApproval(e.target.checked)} /> Exigir aprovação humana antes de iniciar</label>
           <button className="upload-button" type="submit" disabled={!token.trim() || taskBusy || !taskTitle.trim()}><span>＋</span>{taskBusy ? 'A criar…' : 'Criar tarefa'}</button>
         </form>
@@ -306,8 +312,9 @@ export default function App() {
           {visibleTasks.map(task => <article className="skill-item task-item" key={task.id}>
             <div className="skill-head"><span className="skill-glyph">{task.priority === 'urgent' ? '!' : task.priority === 'high' ? '↑' : '✓'}</span><div className="skill-title"><strong>{task.title}</strong><small>{task.owner ? `Responsável: ${task.owner}` : 'Sem responsável'} · Prioridade {task.priority === 'urgent' ? 'urgente' : task.priority === 'high' ? 'alta' : task.priority === 'low' ? 'baixa' : 'normal'}</small></div><span className={`status task-status ${task.status}`}>{task.status === 'awaiting_approval' ? 'Aguardando aprovação' : task.status === 'open' ? 'Aberta' : task.status === 'in_progress' ? 'Em andamento' : task.status === 'blocked' ? 'Bloqueada' : task.status === 'done' ? 'Concluída' : task.status === 'rejected' ? 'Rejeitada' : 'Cancelada'}</span></div>
             {task.description && <p>{task.description}</p>}
+            {task.due_at && <p>Prazo: {new Date(task.due_at).toLocaleString('pt-BR')}</p>}
             {task.approved_scope && <p className="security-note">Escopo aprovado: {task.approved_scope}. Nenhuma ação foi executada automaticamente.</p>}
-            {task.dependencies.length > 0 && <p className="security-note">{task.dependencies.length} dependência(s) vinculada(s).</p>}
+            {task.dependencies.length > 0 && <p className="security-note">Dependências: {task.dependencies.map(id => tasks.find(item => item.id === id)?.title ?? id).join(', ')}</p>}
             <div className="skill-actions">
               {task.status === 'awaiting_approval' && <><button type="button" onClick={() => void decideTask(task, 'approve')}>Aprovar escopo exato</button><button type="button" className="danger" onClick={() => void decideTask(task, 'reject')}>Rejeitar</button></>}
               {task.status === 'open' && <button type="button" onClick={() => void changeTaskStatus(task, 'in_progress')}>Iniciar</button>}
