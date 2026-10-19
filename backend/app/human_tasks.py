@@ -87,8 +87,11 @@ class TaskCompletion(BaseModel):
 
 _OUTGOING_FINANCIAL = re.compile(
     r"\b(pix|transferir|transferencia|transferencias|saque|saques|retirar dinheiro|"
-    r"transfer funds|wire transfer|withdrawal|outgoing payment|pagamento de saida|"
-    r"pagar boleto|pagar fornecedor|enviar dinheiro|envio de dinheiro|fazer um pix)\b"
+    r"withdraw(?:al)?(?: funds| money)?|cash out|send (?:money|funds|payment)|"
+    r"pay (?:a )?(?:vendor|supplier|third party)|transfer(?:ring)? (?:funds|money|to|out)|"
+    r"money transfer|wire transfer|wire funds|payment out|outgoing payment|"
+    r"transfer funds|pagamento de saida|pagar boleto|pagar fornecedor|"
+    r"enviar dinheiro|envio de dinheiro|fazer um pix)\b"
 )
 
 
