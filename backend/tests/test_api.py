@@ -43,6 +43,9 @@ def test_health_lists_supported_languages(client):
     assert payload["ok"] is True
     assert payload["language_default"] == "pt"
     assert set(payload["supported_languages"]) == {"pt", "en", "zh", "es", "hi"}
+    assert payload["llm_mode"] in {"demo", "configured"}
+    assert payload["llm_ready"] is (payload["llm_mode"] == "configured")
+    assert isinstance(payload["transcription_ready"], bool)
 
 
 def test_upload_requires_admin_authentication(client):
