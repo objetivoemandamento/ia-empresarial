@@ -261,20 +261,23 @@ class HumanTaskStore:
             owner = changes.get("owner", row["owner"])
             evidence = changes.get("evidence", json.loads(row["evidence_json"]))
             assert_safe_action(title, description, owner, evidence=evidence or [])
-            if "dependencies" in changes and changes["dependencies"] is not None:
-                dependencies = self._validate_dependencies(connection, task_id, changes["dependencies"])
+            if "dependencies" in changes:
+                dependencies = self._validate_dependencies(connection, task_id, changes.pop("dependencies") or [])
                 changes["dependencies_json"] = _json(dependencies)
-                changes.pop("dependencies")
             if "evidence" in changes:
                 changes["evidence_json"] = _json(changes.pop("evidence") or [])
             if "due_at" in changes:
                 changes["due_at"] = changes["due_at"].isoformat() if changes["due_at"] else None
-            if "title" in changes and changes["title"] is not None:
+            if "title" in changes:
+                if changes["title"] is None:
+                    raise TaskError(422, "O título não pode ficar vazio.")
                 changes["title"] = changes["title"].strip()
                 if not changes["title"]:
                     raise TaskError(422, "O título não pode ficar vazio.")
             if "description" in changes and changes["description"] is None:
                 changes["description"] = ""
+            if "priority" in changes and changes["priority"] is None:
+                changes.pop("priority")
             fields = list(changes)
             values = [changes[field] for field in fields]
             values.extend([_now(), task_id])
