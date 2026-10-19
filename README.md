@@ -80,6 +80,12 @@ O ZIP deve conter `manifest.json` na raiz ou dentro de uma única pasta superior
 
 Upload cria uma versão em estado `pending_review`. Um administrador aprova para `active`. As skills não executam código arbitrário; o motor só interpreta tipos de ferramenta explicitamente suportados.
 
+## Minhas tarefas e decisões humanas
+
+A área **Minhas tarefas** usa a API autenticada `/api/human-tasks` e SQLite para registrar tarefas, prioridades, responsáveis, dependências, idempotência e histórico de auditoria. Tarefas podem exigir aprovação humana; a aprovação guarda apenas o escopo exato e não executa ações externas. Pix, saques e transferências/pagamentos de saída são bloqueados. A migração versionada e os contratos estão em `backend/migrations/versions/0008_human_tasks.py` e `docs/HUMAN-TASKS.md`.
+
+A persistência depende de um volume durável montado em `DATA_DIR`. Não publique usando filesystem efêmero se os registros precisarem sobreviver a reinícios. O painel de tarefas usa o mesmo token administrativo da área Capacidades.
+
 ## Interface
 
 A interface apresenta um escritório digital com salas para conversa, capacidades e voz, ilustração em pixel art feita em CSS, resumo de estado e atividade da sessão. A atividade é real apenas para eventos desta página; o painel não simula agentes autónomos. Veja `docs/REFERENCE-UI.md`.
@@ -87,9 +93,11 @@ A interface apresenta um escritório digital com salas para conversa, capacidade
 ## Limitações do protótipo
 
 - O catálogo de skills é persistido em JSON e restaurado ao reiniciar; é adequado apenas para uma instância. Para produção com múltiplas instâncias, usar PostgreSQL e storage partilhado.
-- Autenticação/ACL é uma camada de demonstração; substituir por OIDC, RBAC, CSRF e rate limiting adequados.
+- A autenticação administrativa usa token compartilhado; antes de produção multiusuário, substituir por OIDC/RBAC, sessões seguras, rate limiting e auditoria de identidade individual.
 - O chat mantém histórico no cliente; não é um sistema multi-tenant pronto para produção.
 - A ativação dinâmica afeta o catálogo de ferramentas declarativas, não os pesos internos do modelo.
+- O checkout real e os webhooks de Mercado Pago não estão implementados. Não tratar esta versão como pronta para receber pagamentos.
+- O GLM-5.2 não está embutido nem configurado; sem endpoint compatível configurado, o chat permanece em modo de demonstração. Não foi ativada nenhuma API paga.
 
 ## Deploy (Render + Vercel)
 
