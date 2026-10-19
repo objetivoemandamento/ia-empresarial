@@ -70,7 +70,15 @@ def test_approval_is_exact_scope_and_does_not_execute_action(task_client):
     assert event["detail"]["effect"] == "approval records this exact scope only; no external action executed"
 
 
-@pytest.mark.parametrize("title", ["Enviar Pix para fornecedor", "Realizar transferência bancária", "Fazer saque"])
+@pytest.mark.parametrize("title", [
+    "Enviar Pix para fornecedor",
+    "Realizar transferência bancária",
+    "Fazer saque",
+    "Withdraw money",
+    "Send funds to vendor",
+    "Pay a supplier",
+    "Transfer funds to another account",
+])
 def test_outgoing_financial_actions_are_rejected(task_client, title):
     response = task_client.post("/api/human-tasks", headers=HEADERS, json={"title": title})
     assert response.status_code == 403
