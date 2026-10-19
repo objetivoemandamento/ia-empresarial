@@ -5,7 +5,11 @@ export type Skill = {
 };
 const API = import.meta.env.VITE_API_BASE ?? ''; // In dev, Vite proxies /api to FastAPI.
 
-export async function checkHealth(): Promise<{ ok: boolean; language_default: Language; supported_languages: Language[] }> {
+export async function checkHealth(): Promise<{
+  ok: boolean; language_default: Language; supported_languages: Language[];
+  llm_ready: boolean; llm_mode: 'configured' | 'demo'; llm_model: string | null;
+  transcription_ready: boolean;
+}> {
   const r = await fetch(`${API}/api/health`);
   if (!r.ok) throw new Error(`API indisponível (${r.status})`);
   return r.json();
