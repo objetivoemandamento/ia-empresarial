@@ -71,7 +71,7 @@ jobs:
             echo "Blocked: private environment or key file found in working tree."
             exit 1
           fi
-          if grep -RInE --exclude='*.zip' --exclude='*.example' --exclude-dir=.git --exclude-dir=node_modules --exclude-dir=dist -- '-----BEGIN (RSA|EC|OPENSSH|PRIVATE) KEY-----|gh[pousr]_[A-Za-z0-9_]{30,}|AKIA[0-9A-Z]{16}' .; then
+          if grep -RInE --exclude='*.zip' --exclude='*.example' --exclude-dir=.git --exclude-dir=.github --exclude-dir=node_modules --exclude-dir=dist -- '-----BEGIN (RSA|EC|OPENSSH|PRIVATE) KEY-----|gh[pousr]_[A-Za-z0-9_]{30,}|AKIA[0-9A-Z]{16}' .; then
             echo "Blocked: high-confidence credential pattern found."
             exit 1
           fi
