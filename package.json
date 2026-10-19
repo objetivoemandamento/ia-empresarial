@@ -1,0 +1,13 @@
+{
+  "name": "ia-empresarial",
+  "private": true,
+  "version": "0.1.0",
+  "scripts": {
+    "dev": "bash ./start.sh",
+    "build": "npm --prefix frontend run build",
+    "build:frontend": "npm --prefix frontend run build",
+    "test:backend": "python -m pytest -q backend",
+    "install:frontend": "npm --prefix frontend install",
+    "verify": "bash ./scripts/verify-all.sh"
+  }
+}

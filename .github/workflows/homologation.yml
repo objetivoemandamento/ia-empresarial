@@ -1,0 +1,114 @@
+name: Homologation gates
+
+on:
+  push:
+    branches: [main, "chore/**", "homologacao/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: homologation-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  import-test:
+    name: Import baseline, verify and publish to homologation branch
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: Checkout branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: true
+
+      - name: Import the reviewed source archive from main
+        shell: bash
+        run: |
+          if [[ -f backend/app/main.py && -f frontend/src/App.tsx && -f backend/app/human_tasks.py ]]; then
+            echo 'Current branch already contains the task implementation; preserve branch source and skip archive import.'
+            exit 0
+          fi
+          set -euo pipefail
+          git fetch origin main --depth=1
+          git show origin/main:ia-empresarial.zip > /tmp/ia-empresarial.zip
+          mkdir -p /tmp/ia-empresarial-src
+          unzip -q /tmp/ia-empresarial.zip -d /tmp/ia-empresarial-src
+          SOURCE="/tmp/ia-empresarial-src/ia-empresarial"
+          test -f "$SOURCE/package.json"
+          test -f "$SOURCE/backend/app/main.py"
+          test -f "$SOURCE/frontend/src/App.tsx"
+          # Import without deleting existing branch files; preserve local config and exclude generated/private artifacts.
+          rsync -a \
+            --exclude='.git/' \
+            --exclude='node_modules/' \
+            --exclude='.env' \
+            --exclude='**/.env' \
+            --exclude='dist/' \
+            --exclude='__pycache__/' \
+            --exclude='.pytest_cache/' \
+            --exclude='*.tsbuildinfo' \
+            --exclude='.github/workflows/ci.yml' \
+            "$SOURCE/" "$GITHUB_WORKSPACE/"
+
+      - name: Require a complete baseline and reject committed secrets
+        shell: bash
+        run: |
+          set -euo pipefail
+          required=("package.json" "backend/requirements.txt" "backend/app/main.py" "backend/app/human_tasks.py" "backend/app/task_schema.py" "backend/migrations/versions/0008_human_tasks.py" "backend/tests/test_human_tasks.py" "frontend/src/App.tsx" "frontend/src/api.ts" "frontend/src/humanTasks.ts")
+          missing=()
+          for path in "${required[@]}"; do
+            [[ -f "$path" ]] || missing+=("$path")
+          done
+          if (( ${#missing[@]} > 0 )); then
+            printf 'Missing required files:\n'
+            printf ' - %s\n' "${missing[@]}"
+            exit 1
+          fi
+          if find . -type f \( -name '.env' -o -name '*.pem' -o -name 'id_rsa' -o -name '*.key' \) -not -path './.git/*' | grep -q .; then
+            echo "Blocked: private environment or key file found in working tree."
+            exit 1
+          fi
+          if grep -RInE --exclude='*.zip' --exclude='*.example' --exclude-dir=.git --exclude-dir=.github --exclude-dir=node_modules --exclude-dir=dist -- '-----BEGIN (RSA|EC|OPENSSH|PRIVATE) KEY-----|gh[pousr]_[A-Za-z0-9_]{30,}|AKIA[0-9A-Z]{16}' .; then
+            echo "Blocked: high-confidence credential pattern found."
+            exit 1
+          fi
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Build frontend
+        working-directory: frontend
+        run: |
+          if [[ -f package-lock.json ]]; then npm ci --no-audit --no-fund; else npm install --no-audit --no-fund; fi
+          npm run build
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies
+        run: python -m pip install -r backend/requirements.txt
+
+      - name: Run backend tests
+        run: python -m compileall -q backend/app backend/tests && python -m pytest -q backend
+
+      - name: Commit imported source to homologation branch after tests pass
+        if: success() && github.event_name != 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          if git diff --cached --quiet; then
+            echo "No source changes to commit."
+            exit 0
+          fi
+          git commit -m "Import tested source baseline [skip ci]"
+          git push origin "HEAD:${GITHUB_REF_NAME}"

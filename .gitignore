@@ -1,0 +1,14 @@
+**/.venv/
+**/node_modules/
+**/dist/
+backend/data/
+backend/.env
+__pycache__/
+.pytest_cache/
+*.pyc
+
+# Runtime databases and generated task state
+/data/*.sqlite3
+/data/*.db
+/backend/data/*.sqlite3
+/backend/data/*.db
