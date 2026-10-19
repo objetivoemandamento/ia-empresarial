@@ -1,8 +1,6 @@
 name: Homologation gates
 
 on:
-  pull_request:
-    branches: [main]
   push:
     branches: [main, "chore/**", "homologacao/**"]
   workflow_dispatch:
@@ -59,7 +57,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          required=("package.json" "backend/requirements.txt" "backend/app/main.py" "frontend/src/App.tsx" "frontend/src/api.ts")
+          required=("package.json" "backend/requirements.txt" "backend/app/main.py" "backend/app/human_tasks.py" "backend/app/task_schema.py" "backend/migrations/versions/0008_human_tasks.py" "backend/tests/test_human_tasks.py" "frontend/src/App.tsx" "frontend/src/api.ts" "frontend/src/humanTasks.ts")
           missing=()
           for path in "${required[@]}"; do
             [[ -f "$path" ]] || missing+=("$path")
