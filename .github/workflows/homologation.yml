@@ -47,6 +47,8 @@ jobs:
             --exclude='dist/' \
             --exclude='__pycache__/' \
             --exclude='.pytest_cache/' \
+            --exclude='*.tsbuildinfo' \
+            --exclude='.github/workflows/ci.yml' \
             "$SOURCE/" "$GITHUB_WORKSPACE/"
 
       - name: Require a complete baseline and reject committed secrets
