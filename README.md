@@ -51,7 +51,7 @@ Para executar código de terceiros, use um executor separado, não privilegiado,
 
 ## Modelo de linguagem
 
-Por padrão, o endpoint de chat usa modo de eco controlado e aplica as skills declarativas aprovadas ao contexto. Configure `LLM_BASE_URL`, `LLM_API_KEY` e `LLM_MODEL` para um endpoint compatível com OpenAI Chat Completions. Não envie segredos ao frontend. O backend falha explicitamente se o provedor não estiver configurado; não afirma ter capacidades que não estão ligadas.
+Por padrão, o endpoint de chat usa modo de eco controlado e aplica as skills declarativas aprovadas ao contexto. Configure `LLM_BASE_URL`, `LLM_API_KEY` e `LLM_MODEL` para um endpoint compatível com OpenAI Chat Completions. Não envie segredos ao frontend. O backend permanece em modo de demonstração quando o provedor não está configurado; o health check e o cabeçalho da interface distinguem esse estado de um modelo real conectado.
 
 ## Áudio e idiomas
 
