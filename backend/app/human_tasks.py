@@ -7,6 +7,7 @@ import unicodedata
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
+from contextlib import contextmanager
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -72,6 +73,12 @@ class TaskDecision(BaseModel):
         return value.strip()
 
 
+class TaskStatusChange(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    status: Literal["open", "in_progress", "blocked", "cancelled"]
+    note: str = Field(default="", max_length=2000)
+
+
 class TaskCompletion(BaseModel):
     model_config = ConfigDict(extra="forbid")
     note: str = Field(default="", max_length=2000)
@@ -119,8 +126,17 @@ class HumanTaskStore:
         connection.execute("PRAGMA busy_timeout=10000")
         return connection
 
+    @contextmanager
+    def _session(self):
+        connection = self._connect()
+        try:
+            with connection:
+                yield connection
+        finally:
+            connection.close()
+
     def initialize(self) -> None:
-        with self._connect() as connection:
+        with self._session() as connection:
             upgrade(connection)
 
     def _record_event(self, connection: sqlite3.Connection, task_id: str,
@@ -174,7 +190,7 @@ class HumanTaskStore:
     def create(self, request: TaskCreate, actor: str) -> dict:
         assert_safe_action(request.title, request.description, request.owner, evidence=request.evidence)
         now = _now()
-        with self._connect() as connection:
+        with self._session() as connection:
             if request.idempotency_key:
                 existing = connection.execute(
                     "SELECT * FROM human_tasks WHERE idempotency_key = ?",
@@ -213,7 +229,7 @@ class HumanTaskStore:
             clauses.append("owner = ?")
             params.append(owner)
         where = (" WHERE " + " AND ".join(clauses)) if clauses else ""
-        with self._connect() as connection:
+        with self._session() as connection:
             rows = connection.execute(
                 "SELECT * FROM human_tasks" + where +
                 " ORDER BY CASE priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 "
@@ -224,7 +240,7 @@ class HumanTaskStore:
             return [self._serialize(row) for row in rows]
 
     def get(self, task_id: str) -> dict:
-        with self._connect() as connection:
+        with self._session() as connection:
             row = connection.execute("SELECT * FROM human_tasks WHERE id = ?", (task_id,)).fetchone()
             if not row:
                 raise TaskError(404, "Tarefa não encontrada.")
@@ -234,7 +250,7 @@ class HumanTaskStore:
         changes = request.model_dump(exclude_unset=True)
         if not changes:
             return self.get(task_id)
-        with self._connect() as connection:
+        with self._session() as connection:
             row = connection.execute("SELECT * FROM human_tasks WHERE id = ?", (task_id,)).fetchone()
             if not row:
                 raise TaskError(404, "Tarefa não encontrada.")
@@ -279,7 +295,7 @@ class HumanTaskStore:
             "in_progress": {"open", "blocked", "cancelled"},
             "blocked": {"open", "in_progress", "cancelled"},
         }
-        with self._connect() as connection:
+        with self._session() as connection:
             row = connection.execute("SELECT * FROM human_tasks WHERE id = ?", (task_id,)).fetchone()
             if not row:
                 raise TaskError(404, "Tarefa não encontrada.")
@@ -295,7 +311,7 @@ class HumanTaskStore:
 
     def decide(self, task_id: str, request: TaskDecision, actor: str) -> dict:
         assert_safe_action(request.scope, request.note)
-        with self._connect() as connection:
+        with self._session() as connection:
             row = connection.execute("SELECT * FROM human_tasks WHERE id = ?", (task_id,)).fetchone()
             if not row:
                 raise TaskError(404, "Tarefa não encontrada.")
@@ -317,7 +333,7 @@ class HumanTaskStore:
     def complete(self, task_id: str, request: TaskCompletion, actor: str) -> dict:
         current = self.get(task_id)
         assert_safe_action(current["title"], current["description"], request.note, evidence=request.evidence)
-        with self._connect() as connection:
+        with self._session() as connection:
             row = connection.execute("SELECT * FROM human_tasks WHERE id = ?", (task_id,)).fetchone()
             if not row:
                 raise TaskError(404, "Tarefa não encontrada.")
@@ -347,7 +363,7 @@ class HumanTaskStore:
             return self._serialize(updated)
 
     def history(self, task_id: str) -> list[dict]:
-        with self._connect() as connection:
+        with self._session() as connection:
             exists = connection.execute("SELECT 1 FROM human_tasks WHERE id = ?", (task_id,)).fetchone()
             if not exists:
                 raise TaskError(404, "Tarefa não encontrada.")
