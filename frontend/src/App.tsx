@@ -2,6 +2,8 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { FormEvent } from 'react';
 import { checkHealth, listSkills, uploadSkill, moderateSkill, sendChat, transcribe } from './api';
 import type { Language, Skill } from './api';
+import { listHumanTasks, createHumanTask, decideHumanTask, changeHumanTaskStatus, completeHumanTask } from './humanTasks';
+import type { HumanTask, HumanTaskPriority } from './humanTasks';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 type Activity = { id: number; time: string; label: string; detail: string; tone: 'blue' | 'green' | 'amber' };
@@ -29,6 +31,15 @@ export default function App() {
   const [serverRecording, setServerRecording] = useState(false);
   const [apiOnline, setApiOnline] = useState<boolean | null>(null);
   const [activities, setActivities] = useState<Activity[]>([{ id: 1, time: clock(), label: 'Escritório iniciado', detail: 'Interface pronta em português', tone: 'green' }]);
+  const [tasks, setTasks] = useState<HumanTask[]>([]);
+  const [taskTitle, setTaskTitle] = useState('');
+  const [taskDescription, setTaskDescription] = useState('');
+  const [taskOwner, setTaskOwner] = useState('');
+  const [taskPriority, setTaskPriority] = useState<HumanTaskPriority>('normal');
+  const [taskRequiresApproval, setTaskRequiresApproval] = useState(false);
+  const [taskFilter, setTaskFilter] = useState('all');
+  const [taskBusy, setTaskBusy] = useState(false);
+  const [taskError, setTaskError] = useState('');
   const fileInput = useRef<HTMLInputElement>(null);
   const scrollRef = useRef<HTMLDivElement>(null);
   const recognitionRef = useRef<any>(null);
@@ -40,17 +51,74 @@ export default function App() {
     setActivities(prev => [{ id: activityId.current++, time: clock(), label, detail, tone }, ...prev].slice(0, 8));
   };
 
+  async function refreshTasks() {
+    if (!token.trim()) { setTasks([]); return; }
+    try { setTasks(await listHumanTasks(token)); setTaskError(''); }
+    catch (e) { setTaskError(String(e)); }
+  }
+
+  async function createTask(e?: FormEvent) {
+    e?.preventDefault();
+    if (!token.trim()) { setTaskError('Introduza o token administrativo para gerir tarefas.'); return; }
+    if (!taskTitle.trim() || taskBusy) return;
+    setTaskBusy(true);
+    try {
+      await createHumanTask(token, {
+        title: taskTitle.trim(), description: taskDescription.trim(),
+        owner: taskOwner.trim() || null, priority: taskPriority,
+        requires_approval: taskRequiresApproval,
+      });
+      setTaskTitle(''); setTaskDescription(''); setTaskOwner('');
+      setTaskRequiresApproval(false); setTaskError('');
+      await refreshTasks();
+      addActivity('Tarefa criada', taskTitle.trim(), 'green');
+    } catch (e) { setTaskError(String(e)); }
+    finally { setTaskBusy(false); }
+  }
+
+  async function decideTask(task: HumanTask, decision: 'approve' | 'reject') {
+    if (!token.trim()) { setTaskError('Introduza o token administrativo.'); return; }
+    try {
+      await decideHumanTask(token, task.id, decision, task.title);
+      setTaskError('');
+      addActivity(decision === 'approve' ? 'Escopo aprovado' : 'Tarefa rejeitada', task.title, decision === 'approve' ? 'green' : 'amber');
+      await refreshTasks();
+    } catch (e) { setTaskError(String(e)); }
+  }
+
+  async function changeTaskStatus(task: HumanTask, status: 'open' | 'in_progress' | 'blocked' | 'cancelled') {
+    if (!token.trim()) { setTaskError('Introduza o token administrativo.'); return; }
+    try {
+      await changeHumanTaskStatus(token, task.id, status);
+      setTaskError('');
+      await refreshTasks();
+      addActivity('Estado da tarefa atualizado', task.title, 'green');
+    } catch (e) { setTaskError(String(e)); }
+  }
+
+  async function finishTask(task: HumanTask) {
+    if (!token.trim()) { setTaskError('Introduza o token administrativo.'); return; }
+    try {
+      await completeHumanTask(token, task.id);
+      setTaskError('');
+      await refreshTasks();
+      addActivity('Tarefa concluída', task.title, 'green');
+    } catch (e) { setTaskError(String(e)); }
+  }
+
   async function refreshSkills() {
     try { setSkills(await listSkills()); setApiOnline(true); }
     catch (e) { setApiOnline(false); setNotice(`API indisponível: ${String(e)}`); }
   }
   useEffect(() => { void refreshSkills(); void checkHealth().then(() => setApiOnline(true)).catch(() => setApiOnline(false)); }, []);
+  useEffect(() => { if (token.trim()) void refreshTasks(); else { setTasks([]); setTaskError(''); } }, [token]);
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }); }, [messages]);
   useEffect(() => () => { recognitionRef.current?.abort?.(); if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop(); window.speechSynthesis?.cancel(); }, []);
 
   const selectedLanguage = LANGUAGES.find(l => l.code === language) ?? LANGUAGES[0];
   const activeSkills = useMemo(() => skills.filter(s => s.status === 'active'), [skills]);
   const pendingSkills = useMemo(() => skills.filter(s => s.status === 'pending_review'), [skills]);
+  const visibleTasks = useMemo(() => taskFilter === 'all' ? tasks : tasks.filter(task => task.status === taskFilter), [tasks, taskFilter]);
   const languageName = language === 'auto' ? 'Automático' : selectedLanguage.label;
 
   async function submit(e?: FormEvent) {
@@ -162,7 +230,7 @@ export default function App() {
       <nav className="rail-nav" aria-label="Navegação do escritório">
         <a className="rail-link selected" href="#top" title="Escritório"><span>▦</span><small>Escritório</small></a>
         <a className="rail-link" href="#conversation" title="Conversa"><span>▤</span><small>Conversa</small></a>
-        <a className="rail-link" href="#skills" title="Capacidades"><span>⌘</span><small>Skills</small></a>
+        <a className="rail-link" href="#skills" title="Capacidades"><span>⌘</span><small>Skills</small></a>\n        <a className="rail-link" href="#human-tasks" title="Minhas tarefas"><span>✓</span><small>Tarefas</small></a>
         <a className="rail-link" href="#voice" title="Voz"><span>♫</span><small>Voz</small></a>
       </nav>
       <div className="rail-bottom"><span className={`connection-dot ${apiOnline ? 'online' : apiOnline === false ? 'offline' : ''}`} title={apiOnline ? 'API conectada' : 'A verificar API'} /><small>{apiOnline ? 'API' : apiOnline === false ? 'Offline' : '…'}</small></div>
@@ -205,6 +273,48 @@ export default function App() {
           <a className="room-card room-chat" href="#conversation"><div className="room-card-top"><span className="room-icon">▤</span><span className="room-state"><i /> PRONTA</span></div><div className="room-illustration chat-illustration"><span className="bubble b1">Olá!</span><span className="bubble b2">...</span><div className="mini-avatar"><i /><b /></div></div><h3>Conversa central</h3><p>Envie instruções por texto ou voz e receba respostas do modelo configurado.</p><span className="room-footer">Entrar na sala <b>↗</b></span></a>
           <a className="room-card room-skills" href="#skills"><div className="room-card-top"><span className="room-icon">⌘</span><span className="room-state"><i /> {activeSkills.length} ATIVAS</span></div><div className="room-illustration skill-illustration"><span className="tile t1">JS</span><span className="tile t2">AI</span><span className="tile t3">ZIP</span><span className="tile t4">✓</span></div><h3>Oficina de capacidades</h3><p>Instale pacotes ZIP, reveja manifestos e aprove ferramentas declarativas.</p><span className="room-footer">Gerir capacidades <b>↗</b></span></a>
           <a className="room-card room-voice" href="#voice"><div className="room-card-top"><span className="room-icon">♫</span><span className="room-state"><i /> MULTILÍNGUE</span></div><div className="room-illustration voice-illustration"><span className="wave w1"/><span className="wave w2"/><span className="wave w3"/><span className="wave w4"/><span className="wave w5"/><span className="wave w6"/><span className="wave w7"/></div><h3>Estúdio de voz</h3><p>Ditado, transcrição server-side e síntese de voz com cinco idiomas.</p><span className="room-footer">Abrir estúdio <b>↗</b></span></a>
+        </div>
+      </section>
+
+      <section className="panel tasks-panel" id="human-tasks">
+        <div className="panel-heading compact">
+          <div className="panel-heading-icon amber">✓</div>
+          <div><span className="section-kicker">ORGANIZAÇÃO · DECISÃO HUMANA</span><h2>Minhas tarefas</h2><p>Tarefas persistidas no backend, com histórico de decisões e conclusão.</p></div>
+          <span className="count-badge">{tasks.length}</span>
+        </div>
+        <p className="security-note">Aprovações registram apenas o escopo exato do título. Nenhuma aprovação executa ações externas; Pix, saques e transferências de saída são bloqueados.</p>
+        <form className="task-create-form" onSubmit={createTask}>
+          <label className="field">Título da tarefa<input value={taskTitle} onChange={e => setTaskTitle(e.target.value)} maxLength={200} required placeholder="Ex.: Revisar o plano de implantação" /></label>
+          <label className="field">Descrição<textarea value={taskDescription} onChange={e => setTaskDescription(e.target.value)} maxLength={5000} rows={2} placeholder="Contexto, resultado esperado e critérios de conclusão" /></label>
+          <div className="task-fields-row">
+            <label className="field">Responsável<input value={taskOwner} onChange={e => setTaskOwner(e.target.value)} maxLength={120} placeholder="Pessoa responsável" /></label>
+            <label className="field">Prioridade<select value={taskPriority} onChange={e => setTaskPriority(e.target.value as HumanTaskPriority)}><option value="low">Baixa</option><option value="normal">Normal</option><option value="high">Alta</option><option value="urgent">Urgente</option></select></label>
+          </div>
+          <label className="check"><input type="checkbox" checked={taskRequiresApproval} onChange={e => setTaskRequiresApproval(e.target.checked)} /> Exigir aprovação humana antes de iniciar</label>
+          <button className="upload-button" type="submit" disabled={!token.trim() || taskBusy || !taskTitle.trim()}><span>＋</span>{taskBusy ? 'A criar…' : 'Criar tarefa'}</button>
+        </form>
+        <div className="task-toolbar">
+          <label className="field">Filtrar estado<select value={taskFilter} onChange={e => setTaskFilter(e.target.value)}>
+            <option value="all">Todos os estados</option><option value="awaiting_approval">Aguardando aprovação</option><option value="open">Aberta</option><option value="in_progress">Em andamento</option><option value="blocked">Bloqueada</option><option value="done">Concluída</option><option value="rejected">Rejeitada</option><option value="cancelled">Cancelada</option>
+          </select></label>
+          <button type="button" className="upload-button" onClick={() => void refreshTasks()} disabled={!token.trim()}>Atualizar lista</button>
+        </div>
+        {taskError && <div className="notice" role="status">{taskError}</div>}
+        {!token.trim() && <div className="empty-state"><span>◇</span><strong>Autenticação necessária</strong><p>Introduza o token administrativo no painel Capacidades para carregar e gerir tarefas.</p></div>}
+        {token.trim() && visibleTasks.length === 0 && <div className="empty-state"><span>✓</span><strong>Nenhuma tarefa neste filtro</strong><p>Crie uma tarefa acima ou altere o filtro para ver outros estados.</p></div>}
+        <div className="skill-list task-list">
+          {visibleTasks.map(task => <article className="skill-item task-item" key={task.id}>
+            <div className="skill-head"><span className="skill-glyph">{task.priority === 'urgent' ? '!' : task.priority === 'high' ? '↑' : '✓'}</span><div className="skill-title"><strong>{task.title}</strong><small>{task.owner ? `Responsável: ${task.owner}` : 'Sem responsável'} · Prioridade ${task.priority === 'urgent' ? 'urgente' : task.priority === 'high' ? 'alta' : task.priority === 'low' ? 'baixa' : 'normal'}</small></div><span className={`status task-status ${task.status}`}>{task.status === 'awaiting_approval' ? 'Aguardando aprovação' : task.status === 'open' ? 'Aberta' : task.status === 'in_progress' ? 'Em andamento' : task.status === 'blocked' ? 'Bloqueada' : task.status === 'done' ? 'Concluída' : task.status === 'rejected' ? 'Rejeitada' : 'Cancelada'}</span></div>
+            {task.description && <p>{task.description}</p>}
+            {task.approved_scope && <p className="security-note">Escopo aprovado: {task.approved_scope}. Nenhuma ação foi executada automaticamente.</p>}
+            {task.dependencies.length > 0 && <p className="security-note">{task.dependencies.length} dependência(s) vinculada(s).</p>}
+            <div className="skill-actions">
+              {task.status === 'awaiting_approval' && <><button type="button" onClick={() => void decideTask(task, 'approve')}>Aprovar escopo exato</button><button type="button" className="danger" onClick={() => void decideTask(task, 'reject')}>Rejeitar</button></>}
+              {task.status === 'open' && <button type="button" onClick={() => void changeTaskStatus(task, 'in_progress')}>Iniciar</button>}
+              {task.status === 'in_progress' && <><button type="button" onClick={() => void finishTask(task)}>Concluir</button><button type="button" className="danger" onClick={() => void changeTaskStatus(task, 'blocked')}>Bloquear</button></>}
+              {task.status === 'blocked' && <button type="button" onClick={() => void changeTaskStatus(task, 'in_progress')}>Retomar</button>}
+            </div>
+          </article>)}
         </div>
       </section>
 
