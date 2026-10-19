@@ -29,6 +29,10 @@ jobs:
       - name: Import the reviewed source archive from main
         shell: bash
         run: |
+          if [[ -f backend/app/main.py && -f frontend/src/App.tsx && -f backend/app/human_tasks.py ]]; then
+            echo 'Current branch already contains the task implementation; preserve branch source and skip archive import.'
+            exit 0
+          fi
           set -euo pipefail
           git fetch origin main --depth=1
           git show origin/main:ia-empresarial.zip > /tmp/ia-empresarial.zip
