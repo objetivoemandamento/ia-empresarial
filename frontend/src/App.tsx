@@ -29,7 +29,7 @@ export default function App() {
   const [voiceStatus, setVoiceStatus] = useState('Pronto para ouvir');
   const [recording, setRecording] = useState(false);
   const [serverRecording, setServerRecording] = useState(false);
-  const [apiOnline, setApiOnline] = useState<boolean | null>(null);
+  const [apiOnline, setApiOnline] = useState<boolean | null>(null);\n  const [llmReady, setLlmReady] = useState<boolean | null>(null);
   const [activities, setActivities] = useState<Activity[]>([{ id: 1, time: clock(), label: 'Escritório iniciado', detail: 'Interface pronta em português', tone: 'green' }]);
   const [tasks, setTasks] = useState<HumanTask[]>([]);
   const [taskTitle, setTaskTitle] = useState('');
@@ -110,7 +110,7 @@ export default function App() {
     try { setSkills(await listSkills()); setApiOnline(true); }
     catch (e) { setApiOnline(false); setNotice(`API indisponível: ${String(e)}`); }
   }
-  useEffect(() => { void refreshSkills(); void checkHealth().then(() => setApiOnline(true)).catch(() => setApiOnline(false)); }, []);
+  useEffect(() => { void refreshSkills(); void checkHealth().then(health => { setApiOnline(true); setLlmReady(health.llm_ready); }).catch(() => { setApiOnline(false); setLlmReady(null); }); }, []);
   useEffect(() => { if (token.trim()) void refreshTasks(); else { setTasks([]); setTaskError(''); } }, [token]);
   useEffect(() => { scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: 'smooth' }); }, [messages]);
   useEffect(() => () => { recognitionRef.current?.abort?.(); if (mediaRecorderRef.current?.state === 'recording') mediaRecorderRef.current.stop(); window.speechSynthesis?.cancel(); }, []);
@@ -240,7 +240,7 @@ export default function App() {
       <header className="topbar">
         <div className="brand-lockup"><div className="eyebrow">MODULAR AI · WORKSPACE</div><h1>Escritório <span>Vértice</span></h1><p>Um espaço de trabalho para conversar, instalar capacidades e gerir a voz.</p></div>
         <div className="top-actions">
-          <div className={`api-pill ${apiOnline ? 'ok' : apiOnline === false ? 'bad' : ''}`}><span className="connection-dot" />{apiOnline ? 'Núcleo conectado' : apiOnline === false ? 'API desconectada' : 'A ligar…'}</div>
+          <div className={`api-pill ${apiOnline ? 'ok' : apiOnline === false ? 'bad' : ''}`}><span className="connection-dot" />{apiOnline ? (llmReady ? 'Modelo conectado' : 'API online · IA demo') : apiOnline === false ? 'API desconectada' : 'A ligar…'}</div>
           <label className="language-picker"><span>IDIOMA</span><select value={language} onChange={e => setLanguage(e.target.value as Language | 'auto')} aria-label="Idioma da conversa">
             {LANGUAGES.map(l => <option key={l.code} value={l.code}>{l.native} · {l.label}{l.code === 'pt' ? ' (padrão)' : ''}</option>)}
             <option value="auto">AUTO · Pelo manifesto</option>
