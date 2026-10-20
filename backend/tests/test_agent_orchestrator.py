@@ -134,6 +134,7 @@ def test_permission_api_saves_optional_controls_and_protects_invariants(api_clie
     updated = api_client.patch("/api/policies", headers=headers, json={"voice_enabled": False})
     assert updated.status_code == 200
     assert updated.json()["voice_enabled"] is False
+    assert api_client.get("/api/health").json()["transcription_ready"] is False
     assert all(item["enabled"] is True for item in updated.json()["protected_controls"])
     assert api_client.patch("/api/policies", headers=headers, json={"security_audit": False}).status_code == 422
     skills_policy = api_client.patch("/api/policies", headers=headers, json={"approved_skills_enabled": False})
