@@ -4,6 +4,8 @@ import { checkHealth, listSkills, uploadSkill, moderateSkill, sendChat, transcri
 import type { Language, Skill } from './api';
 import { listHumanTasks, createHumanTask, decideHumanTask, changeHumanTaskStatus, completeHumanTask } from './humanTasks';
 import type { HumanTask, HumanTaskPriority } from './humanTasks';
+import { AgentOffice } from './AgentOffice';
+import { PermissionsView } from './PermissionsView';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 type Activity = { id: number; time: string; label: string; detail: string; tone: 'blue' | 'green' | 'amber' };
@@ -18,6 +20,7 @@ const initial: Message[] = [{ role: 'assistant', content: 'Bem-vindo ao escritó
 const clock = () => new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
 export default function App() {
+  const [activeTab, setActiveTab] = useState<'home' | 'office' | 'permissions'>('home');
   const [language, setLanguage] = useState<Language | 'auto'>('pt');
   const [messages, setMessages] = useState<Message[]>(initial);
   const [draft, setDraft] = useState('');
@@ -229,12 +232,36 @@ export default function App() {
     } catch (err) { setVoiceStatus(`Microfone indisponível: ${String(err)}`); }
   }
 
+  if (activeTab !== 'home') {
+    const officeTitle = activeTab === 'office' ? 'Escritório de IAs' : 'Permissões';
+    return <div className="app-frame">
+      <aside className="rail">
+        <a className="brand-mark" href="#top" aria-label="Início" onClick={() => setActiveTab('home')}><span className="pixel-logo">V</span></a>
+        <nav className="rail-nav" aria-label="Navegação do escritório">
+          <button type="button" className="rail-link" onClick={() => setActiveTab('home')}><span>▦</span><small>Escritório</small></button>
+          <button type="button" className={`rail-link ${activeTab === 'office' ? 'selected' : ''}`} onClick={() => setActiveTab('office')}><span>♟</span><small>Agentes IA</small></button>
+          <button type="button" className={`rail-link ${activeTab === 'permissions' ? 'selected' : ''}`} onClick={() => setActiveTab('permissions')}><span>⚙</span><small>Permissões</small></button>
+        </nav>
+        <div className="rail-bottom"><span className={`connection-dot ${apiOnline ? 'online' : apiOnline === false ? 'offline' : ''}`} /><small>{apiOnline ? 'API' : apiOnline === false ? 'Offline' : '…'}</small></div>
+      </aside>
+      <main className="workspace" id="top">
+        <header className="topbar">
+          <div className="brand-lockup"><div className="eyebrow">IA EMPRESARIAL · WORKSPACE</div><h1>{officeTitle}</h1><p>{activeTab === 'office' ? 'Coordenação de tarefas, agentes especialistas e revisão.' : 'Configurações opcionais e proteções obrigatórias.'}</p></div>
+          <div className={`api-pill ${apiOnline ? 'ok' : apiOnline === false ? 'bad' : ''}`}><span className="connection-dot" />{apiOnline ? 'API conectada' : apiOnline === false ? 'API offline' : 'A verificar API'}</div>
+        </header>
+        {activeTab === 'office' ? <AgentOffice token={token} apiOnline={apiOnline} /> : <PermissionsView token={token} />}
+      </main>
+    </div>;
+  }
+
   return <div className="app-frame">
     <aside className="rail">
       <a className="brand-mark" href="#top" aria-label="Início"><span className="pixel-logo">V</span></a>
       <nav className="rail-nav" aria-label="Navegação do escritório">
-        <a className="rail-link selected" href="#top" title="Escritório"><span>▦</span><small>Escritório</small></a>
-        <a className="rail-link" href="#conversation" title="Conversa"><span>▤</span><small>Conversa</small></a>
+        <a className={`rail-link ${activeTab === 'home' ? 'selected' : ''}`} href="#top" title="Escritório" onClick={() => setActiveTab('home')}><span>▦</span><small>Escritório</small></a>
+        <button type="button" className={`rail-link ${activeTab === 'office' ? 'selected' : ''}`} title="Escritório de IAs" onClick={() => setActiveTab('office')}><span>♟</span><small>Agentes IA</small></button>
+        <button type="button" className={`rail-link ${activeTab === 'permissions' ? 'selected' : ''}`} title="Permissões" onClick={() => setActiveTab('permissions')}><span>⚙</span><small>Permissões</small></button>
+        <a className="rail-link" href="#conversation" title="Conversa" onClick={() => setActiveTab('home')}><span>▤</span><small>Conversa</small></a>
         <a className="rail-link" href="#skills" title="Capacidades"><span>⌘</span><small>Skills</small></a>
         <a className="rail-link" href="#human-tasks" title="Minhas tarefas"><span>✓</span><small>Tarefas</small></a>
         <a className="rail-link" href="#voice" title="Voz"><span>♫</span><small>Voz</small></a>
