@@ -152,3 +152,5 @@ npm run dev
 ```
 
 Portas locais esperadas: frontend `5173`, backend `8000`, documentação da API `8000/docs`. A integração com nós móveis requer implementação e validação específicas; essas URLs não comprovam, por si só, comunicação com os celulares.
+
+See `docs/REA_INTEGRATION.md` for the safe local REA/MCP integration plan and current limitations.
