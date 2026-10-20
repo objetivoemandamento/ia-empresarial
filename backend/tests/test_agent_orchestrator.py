@@ -134,6 +134,8 @@ def test_permission_api_saves_optional_controls_and_protects_invariants(api_clie
     assert updated.json()["voice_enabled"] is False
     assert all(item["enabled"] is True for item in updated.json()["protected_controls"])
     assert api_client.patch("/api/policies", headers=headers, json={"security_audit": False}).status_code == 422
+    skills_policy = api_client.patch("/api/policies", headers=headers, json={"approved_skills_enabled": False})
+    assert skills_policy.status_code == 200
     audio = api_client.post("/api/audio/transcribe", data={"language": "pt"}, files={"file": ("audio.webm", b"audio", "audio/webm")})
     assert audio.status_code == 403
     skills = api_client.post("/api/repositories/upload", headers=headers, files={"file": ("skills.zip", b"not-a-zip", "application/zip")})
