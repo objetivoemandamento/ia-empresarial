@@ -6,7 +6,8 @@ from fastapi.testclient import TestClient
 from app import main
 from app.llm import LLMUnavailable
 from app.schemas import SkillSummary
-from app.security import SkillError, UnsafeArchive
+from app.repository_manager import SkillError
+from app.security import UnsafeArchive
 
 
 class FakeLLM:
