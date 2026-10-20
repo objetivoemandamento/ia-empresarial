@@ -17,6 +17,9 @@ class Settings(BaseSettings):
     llm_base_url: str = ""
     llm_api_key: str = ""
     llm_model: str = ""
+    # JSON array of OpenAI-compatible model endpoints. Secrets are referenced by
+    # environment-variable name, never stored in the JSON configuration.
+    ai_router_models_json: str = ""
     openai_api_key: str = ""
     transcription_model: str = "whisper-1"
 
@@ -27,8 +30,10 @@ class Settings(BaseSettings):
         if self.app_env.lower() in {"prod", "production"}:
             if self.admin_token == "change-me-in-development" or len(self.admin_token) < 32:
                 raise ValueError("Production requires a unique ADMIN_TOKEN with at least 32 characters")
-            if not (self.llm_base_url.strip() and self.llm_api_key.strip() and self.llm_model.strip()):
-                raise ValueError("Production requires LLM_BASE_URL, LLM_API_KEY, and LLM_MODEL")
+            legacy_ready = bool(self.llm_base_url.strip() and self.llm_api_key.strip() and self.llm_model.strip())
+            router_ready = bool(self.ai_router_models_json.strip())
+            if not (legacy_ready or router_ready):
+                raise ValueError("Production requires LLM_BASE_URL/API_KEY/MODEL or AI_ROUTER_MODELS_JSON")
             if not self.origins:
                 raise ValueError("Production requires at least one ALLOWED_ORIGINS entry")
         return self
