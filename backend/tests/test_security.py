@@ -49,8 +49,11 @@ def test_skill_requires_approval(tmp_path):
     skill = manager.install_zip(z)
     assert skill.status == "pending_review"
     assert manager.active_tools(["hello-skill"], "pt") == []
+    assert manager.preferred_language(["hello-skill"]) is None
     manager.approve("hello-skill")
+    assert manager.preferred_language(["hello-skill"]) == "pt"
     assert len(manager.active_tools(["hello-skill"], "pt")) == 1
+    assert manager.active_tools(["hello-skill"], "en") == []
 
 def test_rejects_executable_source(tmp_path):
     z = make_zip(tmp_path / "skill.zip", {"manifest.json": manifest(), "evil.py": "print('bad')"})
@@ -136,4 +139,43 @@ def test_rejects_high_compression_ratio(tmp_path):
                       max_uncompressed_bytes=1_000_000, max_compression_ratio=2)
     with pytest.raises(UnsafeArchive, match="compression ratio"):
         inspect_zip(archive_path, limits)
+
+def test_rejected_skill_is_removed_and_can_be_resubmitted(tmp_path):
+    z = make_zip(tmp_path / "skill.zip", {"manifest.json": manifest()})
+    manager = SkillManager(settings(tmp_path))
+    first = manager.install_zip(z)
+    package_root = Path(manager.catalog[first.id]["path"]).parent
+    rejected = manager.reject(first.id)
+    assert rejected.status == "rejected"
+    assert not package_root.exists()
+    second = manager.install_zip(z)
+    assert second.id == first.id
+    assert second.status == "pending_review"
+
+
+def test_catalog_reloads_approved_skills_and_fails_closed_when_corrupt(tmp_path):
+    z = make_zip(tmp_path / "skill.zip", {"manifest.json": manifest()})
+    manager = SkillManager(settings(tmp_path))
+    manager.install_zip(z)
+    manager.approve("hello-skill")
+    restored = SkillManager(settings(tmp_path))
+    assert restored.list_skills()[0].status == "active"
+    assert restored.active_tools(["hello-skill"], "pt")
+    restored.catalog_file.write_text("{broken", encoding="utf-8")
+    corrupt = SkillManager(settings(tmp_path))
+    assert corrupt.list_skills() == []
+
+
+def test_rejects_multiple_manifests_and_files_outside_package_root(tmp_path):
+    multi = make_zip(tmp_path / "multi.zip", {
+        "manifest.json": manifest(), "nested/manifest.json": manifest(),
+    })
+    manager = SkillManager(settings(tmp_path))
+    with pytest.raises(ValueError, match="exactly one"):
+        manager.install_zip(multi)
+    mixed = make_zip(tmp_path / "mixed.zip", {
+        "package/manifest.json": manifest(), "outside.txt": "not in package",
+    })
+    with pytest.raises(ValueError, match="outside the manifest"):
+        manager.install_zip(mixed)
 
