@@ -226,7 +226,7 @@ async def test_failed_planning_can_be_retried_after_provider_recovers(tmp_path):
     assert result["result"] == "entrega revisada"
 
 
-def test_missing_run_and_already_decided_approval_return_errors(tmp_path):
+def test_missing_run_and_approval_return_errors(tmp_path):
     async def unused(system, user):
         raise AssertionError("not called")
 
