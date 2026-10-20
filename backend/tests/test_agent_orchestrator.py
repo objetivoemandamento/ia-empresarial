@@ -2,7 +2,9 @@ import asyncio
 import json
 
 import pytest
+from fastapi.testclient import TestClient
 
+from app import main
 from app.agent_orchestrator import AgentOrchestrator, AgentRunError
 
 OK = json.dumps({"approved": True, "notes": "ok"})
@@ -13,6 +15,10 @@ def plan(*tasks):
         {"title": title, "instructions": "Faça " + title, "sensitive_action": action}
         for title, action in tasks
     ]})
+
+
+async def unavailable_llm(system, user):
+    raise RuntimeError("provider unavailable")
 
 
 def make_store(tmp_path, llm, policies=None):
@@ -90,10 +96,39 @@ def test_financial_goals_are_blocked_before_model_call(tmp_path):
 
 @pytest.mark.asyncio
 async def test_missing_model_fails_run_without_claiming_delivery(tmp_path):
-    async def unavailable(system, user):
-        raise RuntimeError("provider unavailable")
-
-    store = make_store(tmp_path, unavailable)
+    store = make_store(tmp_path, unavailable_llm)
     result = await store.process(store.create("Pesquisar um mercado")["id"])
     assert result["status"] == "failed"
     assert result["result"] is None
+
+
+@pytest.fixture
+def api_client(monkeypatch, tmp_path):
+    monkeypatch.setattr(main.settings, "admin_token", "test-admin-token")
+    monkeypatch.setattr(main, "POLICY_FILE", tmp_path / "policies.json")
+    store = AgentOrchestrator(tmp_path / "api-runs.sqlite3", unavailable_llm, main.read_policies)
+    monkeypatch.setattr(main, "agent_orchestrator", store)
+    monkeypatch.setattr(main, "_schedule_agent_run", lambda run_id: None)
+    return TestClient(main.app)
+
+
+def test_agent_run_api_requires_admin_and_blocks_financial_goal(api_client):
+    assert api_client.get("/api/agent-runs").status_code == 401
+    headers = {"Authorization": "Bearer test-admin-token"}
+    assert api_client.get("/api/agent-runs", headers=headers).status_code == 200
+    blocked = api_client.post("/api/agent-runs", headers=headers, json={"goal": "Transferir dinheiro"})
+    assert blocked.status_code == 422
+
+
+def test_permission_api_saves_optional_controls_and_protects_invariants(api_client):
+    headers = {"Authorization": "Bearer test-admin-token"}
+    initial = api_client.get("/api/policies").json()
+    assert all(item["enabled"] is True for item in initial["protected_controls"])
+    assert api_client.patch("/api/policies", json={"voice_enabled": False}).status_code == 401
+    updated = api_client.patch("/api/policies", headers=headers, json={"voice_enabled": False})
+    assert updated.status_code == 200
+    assert updated.json()["voice_enabled"] is False
+    assert all(item["enabled"] is True for item in updated.json()["protected_controls"])
+    assert api_client.patch("/api/policies", headers=headers, json={"security_audit": False}).status_code == 422
+    audio = api_client.post("/api/audio/transcribe", data={"language": "pt"}, files={"file": ("audio.webm", b"audio", "audio/webm")})
+    assert audio.status_code == 403
