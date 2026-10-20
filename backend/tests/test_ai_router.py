@@ -164,3 +164,63 @@ async def test_legacy_llm_complete_sends_system_and_user_messages(monkeypatch):
         {"role": "user", "content": "Tarefa segura"},
     ]
 
+@pytest.mark.asyncio
+async def test_router_fails_when_no_model_supports_inferred_task(monkeypatch):
+    monkeypatch.setenv("CODING_ONLY_API_KEY", "test-secret")
+    config = json.dumps([{
+        "id": "coding-only", "base_url": "https://coding.example/v1", "model": "coding-model",
+        "api_key_env": "CODING_ONLY_API_KEY", "tasks": ["coding"]
+    }])
+    with pytest.raises(LLMUnavailable, match="No configured AI router model"):
+        await AIModelRouter(Settings(ai_router_models_json=config)).respond(
+            [{"role": "user", "content": "Olá, como vai?"}], "pt", []
+        )
+
+
+@pytest.mark.asyncio
+async def test_router_empty_response_fails_without_secret(monkeypatch):
+    monkeypatch.setenv("EMPTY_RESPONSE_API_KEY", "super-secret")
+    config = json.dumps([{
+        "id": "empty", "base_url": "https://empty.example/v1", "model": "empty-model",
+        "api_key_env": "EMPTY_RESPONSE_API_KEY", "tasks": ["general"]
+    }])
+    FakeAsyncClient.responses = [FakeResponse("")]
+    FakeAsyncClient.requests = []
+    monkeypatch.setattr("app.llm.httpx.AsyncClient", FakeAsyncClient)
+    with pytest.raises(LLMUnavailable) as err:
+        await AIModelRouter(Settings(ai_router_models_json=config)).respond(
+            [{"role": "user", "content": "Olá"}], "pt", []
+        )
+    assert "super-secret" not in str(err.value)
+
+
+@pytest.mark.asyncio
+async def test_legacy_respond_success_and_sanitized_provider_failure(monkeypatch):
+    settings = Settings(llm_base_url="https://provider.example/v1", llm_api_key="never-print-this", llm_model="test-model")
+    monkeypatch.setattr("app.llm.httpx.AsyncClient", FakeAsyncClient)
+    FakeAsyncClient.responses = [FakeResponse("resposta")]
+    FakeAsyncClient.requests = []
+    answer, provider = await LLMEngine(settings).respond([{"role": "user", "content": "Olá"}], "pt", [])
+    assert answer.startswith("resposta")
+    assert provider == "configured-llm"
+    FakeAsyncClient.responses = [httpx.ConnectError("private failure detail")]
+    with pytest.raises(LLMUnavailable) as err:
+        await LLMEngine(settings).respond([{"role": "user", "content": "Olá"}], "pt", [])
+    assert "never-print-this" not in str(err.value)
+    assert "private failure detail" not in str(err.value)
+
+
+@pytest.mark.asyncio
+async def test_llm_engine_complete_uses_multi_provider_router(monkeypatch):
+    monkeypatch.setenv("COMPLETE_TEST_API_KEY", "completion-secret")
+    settings = Settings(ai_router_models_json=json.dumps([{
+        "id": "complete", "base_url": "https://complete.example/v1", "model": "complete-model",
+        "api_key_env": "COMPLETE_TEST_API_KEY", "tasks": ["general", "analysis"]
+    }]))
+    FakeAsyncClient.responses = [FakeResponse("completed")]
+    FakeAsyncClient.requests = []
+    monkeypatch.setattr("app.llm.httpx.AsyncClient", FakeAsyncClient)
+    answer = await LLMEngine(settings).complete("ROLE:EXECUTOR", "Tarefa geral")
+    assert answer == "completed"
+    assert "complete.example" in FakeAsyncClient.requests[0]["url"]
+
