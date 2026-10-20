@@ -189,3 +189,30 @@ class LLMEngine:
                 return answer, "configured-llm"
             except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
                 raise LLMUnavailable(f"LLM provider request failed: {exc.__class__.__name__}") from exc
+
+    async def complete(self, system: str, user: str) -> str:
+        """Real model call for the CEO orchestration; never returns demo text."""
+        if self.settings.ai_router_models_json.strip():
+            answer, _provider = await self.router.respond(
+                [{"role": "system", "content": system}, {"role": "user", "content": user}],
+                "pt", [],
+            )
+            return answer.strip()
+        if not (self.settings.llm_base_url.strip() and self.settings.llm_api_key.strip() and self.settings.llm_model.strip()):
+            raise LLMUnavailable("Provedor de IA não configurado para executar agentes")
+        base = self.settings.llm_base_url.rstrip("/")
+        url = base if base.endswith("/chat/completions") else base + "/chat/completions"
+        payload = {"model": self.settings.llm_model, "messages": [
+            {"role": "system", "content": system}, {"role": "user", "content": user}
+        ], "temperature": 0.2}
+        async with httpx.AsyncClient(timeout=httpx.Timeout(90.0, connect=10.0)) as client:
+            try:
+                response = await client.post(url, json=payload, headers={"Authorization": f"Bearer {self.settings.llm_api_key}"})
+                response.raise_for_status()
+                answer = response.json()["choices"][0]["message"]["content"]
+            except (httpx.HTTPError, KeyError, IndexError, TypeError, ValueError) as exc:
+                raise LLMUnavailable(f"LLM provider request failed: {exc.__class__.__name__}") from exc
+        if not isinstance(answer, str) or not answer.strip():
+            raise LLMUnavailable("Provider returned an empty response")
+        return answer.strip()
+
