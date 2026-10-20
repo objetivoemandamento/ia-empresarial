@@ -68,6 +68,8 @@ class AIModelRouter:
             if parsed_url.scheme != "https" and parsed_url.hostname not in {"localhost", "127.0.0.1", "::1"}:
                 continue
             env_name = item["api_key_env"].strip()
+            if not re.fullmatch(r"[A-Z][A-Z0-9_]*(?:_API_KEY|_API_TOKEN)", env_name):
+                continue
             api_key = os.getenv(env_name, "")
             if not api_key:
                 continue
