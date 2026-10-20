@@ -3,6 +3,7 @@ export type AgentTask = {
   status: string; output: string | null; review: string | null; attempts: number; error: string | null;
 };
 export type AgentApproval = { id: number; task_id: number; action: string; detail: string; status: 'pending' | 'approved' | 'rejected' };
+export type AgentRunSummary = { id: number; goal: string; status: string; error: string | null; created: number; updated: number };
 export type AgentRun = {
   id: number; goal: string; status: string; result: string | null; error: string | null;
   tasks: AgentTask[]; approvals: AgentApproval[];
@@ -19,7 +20,7 @@ async function request<T>(path: string, token: string, init: RequestInit = {}): 
   }
   return response.json() as Promise<T>;
 }
-export const listAgentRuns = (token: string) => request<{ runs: AgentRun[] }>('/api/agent-runs', token).then(r => r.runs);
+export const listAgentRuns = (token: string) => request<{ runs: AgentRunSummary[] }>('/api/agent-runs', token).then(r => r.runs);
 export const getAgentRun = (id: number, token: string) => request<AgentRun>(`/api/agent-runs/${id}`, token);
 export const createAgentRun = (goal: string, token: string) => request<AgentRun>('/api/agent-runs', token, { method: 'POST', body: JSON.stringify({ goal }) });
 export const retryAgentRun = (id: number, token: string) => request<AgentRun>(`/api/agent-runs/${id}/retry`, token, { method: 'POST' });
