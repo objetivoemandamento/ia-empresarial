@@ -55,10 +55,13 @@ SPECIALISTS = {
 }
 
 def _json(text: str) -> dict:
-    match = re.search(r"\{.*\}", text, re.S)
-    if not match:
-        raise ValueError("Resposta sem JSON válido")
-    value = json.loads(match.group(0))
+    try:
+        value = json.loads(text.strip())
+    except json.JSONDecodeError:
+        match = re.search(r"\{.*\}", text, re.S)
+        if not match:
+            raise ValueError("Resposta sem JSON válido")
+        value = json.loads(match.group(0))
     if not isinstance(value, dict):
         raise ValueError("Resposta JSON deve ser objeto")
     return value
