@@ -1,5 +1,5 @@
 export type AgentTask = {
-  id: number; idx: number; title: string; instructions: string; action: string | null;
+  id: number; idx: number; title: string; instructions: string; action: string | null; specialist: string;
   status: string; output: string | null; review: string | null; attempts: number; error: string | null;
 };
 export type AgentApproval = { id: number; task_id: number; action: string; detail: string; status: 'pending' | 'approved' | 'rejected' };
