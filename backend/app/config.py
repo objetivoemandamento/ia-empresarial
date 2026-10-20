@@ -31,6 +31,13 @@ class Settings(BaseSettings):
             if self.admin_token == "change-me-in-development" or len(self.admin_token) < 32:
                 raise ValueError("Production requires a unique ADMIN_TOKEN with at least 32 characters")
             legacy_ready = bool(self.llm_base_url.strip() and self.llm_api_key.strip() and self.llm_model.strip())
+            if legacy_ready:
+                from urllib.parse import urlparse
+                parsed_legacy = urlparse(self.llm_base_url)
+                if parsed_legacy.scheme not in {"https", "http"} or not parsed_legacy.netloc or parsed_legacy.username or parsed_legacy.password:
+                    raise ValueError("Production LLM_BASE_URL must be a valid HTTP(S) URL without embedded credentials")
+                if parsed_legacy.scheme != "https" and parsed_legacy.hostname not in {"localhost", "127.0.0.1", "::1"}:
+                    raise ValueError("Production remote LLM_BASE_URL must use HTTPS")
             router_ready = bool(self.ai_router_models_json.strip())
             if not (legacy_ready or router_ready):
                 raise ValueError("Production requires LLM_BASE_URL/API_KEY/MODEL or AI_ROUTER_MODELS_JSON")
