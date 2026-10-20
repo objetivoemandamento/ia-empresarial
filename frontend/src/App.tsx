@@ -251,7 +251,7 @@ export default function App() {
           <div className="brand-lockup"><div className="eyebrow">IA EMPRESARIAL · WORKSPACE</div><h1>{officeTitle}</h1><p>{activeTab === 'office' ? 'Coordenação de tarefas, agentes especialistas e revisão.' : 'Configurações opcionais e proteções obrigatórias.'}</p></div>
           <div className={`api-pill ${apiOnline ? 'ok' : apiOnline === false ? 'bad' : ''}`}><span className="connection-dot" />{apiOnline ? 'API conectada' : apiOnline === false ? 'API offline' : 'A verificar API'}</div>
         </header>
-        {activeTab === 'office' ? <AgentOffice token={token} apiOnline={apiOnline} /> : activeTab === 'permissions' ? <PermissionsView token={token} /> : <ConnectionsView />}
+        {activeTab === 'office' ? <AgentOffice token={token} apiOnline={apiOnline} llmReady={llmReady} /> : activeTab === 'permissions' ? <PermissionsView token={token} /> : <ConnectionsView />}
       </main>
     </div>;
   }
