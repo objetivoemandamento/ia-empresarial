@@ -4,7 +4,7 @@ import os
 import pytest
 import httpx
 from app.config import Settings
-from app.llm import AIModelRouter, LLMUnavailable, _infer_task
+from app.llm import AIModelRouter, LLMEngine, LLMUnavailable, _infer_task
 
 
 def test_task_router_classifies_coding_and_marketing():
@@ -133,4 +133,34 @@ async def test_ceo_review_role_routes_to_analysis_model(monkeypatch):
     assert answer == "reviewed"
     assert provider == "router:review"
     assert "review.example" in FakeAsyncClient.requests[0]["url"]
+
+@pytest.mark.asyncio
+async def test_llm_engine_demo_mode_is_explicit():
+    engine = LLMEngine(Settings())
+    answer, provider = await engine.respond([{"role": "user", "content": "Oi"}], "pt", [])
+    assert provider == "demo"
+    assert "Modo demonstração" in answer
+
+
+@pytest.mark.asyncio
+async def test_llm_engine_complete_requires_real_provider():
+    engine = LLMEngine(Settings())
+    with pytest.raises(LLMUnavailable, match="não configurado"):
+        await engine.complete("ROLE:EXECUTOR", "Tarefa segura")
+
+
+@pytest.mark.asyncio
+async def test_legacy_llm_complete_sends_system_and_user_messages(monkeypatch):
+    settings = Settings(llm_base_url="https://provider.example/v1", llm_api_key="test-secret", llm_model="test-model")
+    FakeAsyncClient.responses = [FakeResponse("resultado")]
+    FakeAsyncClient.requests = []
+    monkeypatch.setattr("app.llm.httpx.AsyncClient", FakeAsyncClient)
+    answer = await LLMEngine(settings).complete("ROLE:EXECUTOR", "Tarefa segura")
+    assert answer == "resultado"
+    request = FakeAsyncClient.requests[0]
+    assert request["url"] == "https://provider.example/v1/chat/completions"
+    assert request["payload"]["messages"] == [
+        {"role": "system", "content": "ROLE:EXECUTOR"},
+        {"role": "user", "content": "Tarefa segura"},
+    ]
 
