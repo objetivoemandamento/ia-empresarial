@@ -118,6 +118,10 @@ def test_agent_run_api_requires_admin_and_blocks_financial_goal(api_client):
     assert api_client.get("/api/agent-runs", headers=headers).status_code == 200
     blocked = api_client.post("/api/agent-runs", headers=headers, json={"goal": "Transferir dinheiro"})
     assert blocked.status_code == 422
+    created = api_client.post("/api/agent-runs", headers=headers, json={"goal": "Planejar uma pesquisa de mercado"})
+    assert created.status_code == 202
+    run_id = created.json()["id"]
+    assert api_client.get(f"/api/agent-runs/{run_id}", headers=headers).json()["status"] == "queued"
 
 
 def test_permission_api_saves_optional_controls_and_protects_invariants(api_client):
