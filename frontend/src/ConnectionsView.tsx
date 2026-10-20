@@ -20,7 +20,14 @@ export function ConnectionsView() {
   const [models, setModels] = useState<ModelConfig[]>(() => {
     try {
       const saved = window.sessionStorage.getItem('ia-empresarial-router-models');
-      return saved ? JSON.parse(saved) as ModelConfig[] : [];
+      if (!saved) return [];
+      const parsed: unknown = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed.filter((item): item is ModelConfig =>
+        Boolean(item) && typeof item.id === 'string' && typeof item.provider === 'string' &&
+        typeof item.base_url === 'string' && typeof item.model === 'string' &&
+        typeof item.api_key_env === 'string' && Array.isArray(item.tasks) &&
+        typeof item.priority === 'number'
+      ) : [];
     } catch { return []; }
   });
   const [copied, setCopied] = useState(false);
