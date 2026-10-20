@@ -93,6 +93,9 @@ export function AgentOffice({ token, apiOnline, llmReady }: { token: string; api
         <button style={{ ...buttonStyle, borderColor: '#9d5555' }} type="button" disabled={busy} onClick={() => void act(() => decideAgentApproval(a.id, false, token))}>Recusar</button>
       </div>)}
       {(detail.status === 'failed' || detail.status === 'interrupted') && <button style={buttonStyle} type="button" disabled={busy} onClick={() => void act(() => retryAgentRun(detail.id, token))}>Tentar novamente</button>}
+      {detail.events?.length > 0 && <details style={{ marginTop: 16 }}><summary>Histórico de auditoria ({detail.events.length} eventos)</summary>
+        {detail.events.map(event => <div key={event.id} className="activity-row"><div style={{ flex: 1 }}><strong>{event.kind}</strong><p>{new Date(event.ts * 1000).toLocaleString('pt-BR')} · {event.detail}</p></div></div>)}
+      </details>}
       {detail.result && <><h3>Entrega revisada</h3><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{detail.result}</pre></>}
     </div>}
   </section>;
