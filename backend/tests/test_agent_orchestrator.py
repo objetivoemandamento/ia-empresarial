@@ -81,6 +81,8 @@ async def test_safe_task_progresses_while_publish_waits_for_approval(tmp_path):
     assert result["status"] == "awaiting_approval"
     assert [task["status"] for task in result["tasks"]] == ["awaiting_approval", "done"]
     store.decide(result["approvals"][0]["id"], True)
+    with pytest.raises(AgentRunError, match="já foi decidida"):
+        store.decide(result["approvals"][0]["id"], True)
     result = await store.process(result["id"])
     assert result["status"] == "delivered"
 
