@@ -34,6 +34,33 @@ class Settings(BaseSettings):
             router_ready = bool(self.ai_router_models_json.strip())
             if not (legacy_ready or router_ready):
                 raise ValueError("Production requires LLM_BASE_URL/API_KEY/MODEL or AI_ROUTER_MODELS_JSON")
+            if router_ready:
+                import json
+                import os
+                from urllib.parse import urlparse
+                try:
+                    models = json.loads(self.ai_router_models_json)
+                except json.JSONDecodeError as exc:
+                    raise ValueError("AI_ROUTER_MODELS_JSON must be valid JSON") from exc
+                if not isinstance(models, list) or not models:
+                    raise ValueError("AI_ROUTER_MODELS_JSON must be a non-empty JSON array")
+                configured_provider = False
+                for item in models:
+                    if not isinstance(item, dict) or item.get("enabled", True) is False:
+                        continue
+                    required = (item.get("id"), item.get("base_url"), item.get("model"), item.get("api_key_env"))
+                    if not all(isinstance(value, str) and value.strip() for value in required):
+                        continue
+                    parsed_url = urlparse(item["base_url"])
+                    if parsed_url.scheme not in {"https", "http"} or not parsed_url.netloc or parsed_url.username or parsed_url.password:
+                        continue
+                    if parsed_url.scheme != "https" and parsed_url.hostname not in {"localhost", "127.0.0.1", "::1"}:
+                        continue
+                    if os.getenv(item["api_key_env"].strip()):
+                        configured_provider = True
+                        break
+                if not configured_provider:
+                    raise ValueError("Production requires at least one enabled AI router model with its API key environment variable configured")
             if not self.origins:
                 raise ValueError("Production requires at least one ALLOWED_ORIGINS entry")
         return self
