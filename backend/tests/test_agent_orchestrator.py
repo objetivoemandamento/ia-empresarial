@@ -149,3 +149,90 @@ def test_fifteen_specialist_routes_are_available():
     assert _specialty("Corrigir bug na API Python") == "Engenharia"
     assert _specialty("Planejar integração MCP e webhook") == "Integrações"
 
+@pytest.mark.asyncio
+async def test_invalid_ceo_plan_fails_closed(tmp_path):
+    async def invalid_plan(system, user):
+        return "not JSON"
+
+    store = make_store(tmp_path, invalid_plan)
+    result = await store.process(store.create("Planejar algo seguro")["id"])
+    assert result["status"] == "failed"
+    assert result["result"] is None
+    assert "Falha no planejamento" in result["error"]
+
+
+@pytest.mark.asyncio
+async def test_external_network_task_is_blocked_by_default(tmp_path):
+    calls = []
+    async def llm(system, user):
+        calls.append(system)
+        return plan(("Pesquisar na web", "external_network"))
+
+    store = make_store(tmp_path, llm)
+    result = await store.process(store.create("Pesquisar dados externos")["id"])
+    assert result["status"] == "failed"
+    assert result["tasks"][0]["status"] == "blocked"
+    assert "Rede externa desativada" in result["tasks"][0]["error"]
+    assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_rejected_approval_does_not_deliver_run(tmp_path):
+    async def llm(system, user):
+        role = system.split(".")[0].removeprefix("ROLE:")
+        if role == "CEO_PLAN":
+            return plan(("Publicar relatório", "publish"))
+        if role == "CEO_DELIVERY":
+            return "não deveria entregar"
+        return OK
+
+    store = make_store(tmp_path, llm)
+    result = await store.process(store.create("Preparar relatório")["id"])
+    assert result["status"] == "awaiting_approval"
+    store.decide(result["approvals"][0]["id"], False)
+    result = await store.process(result["id"])
+    assert result["status"] == "failed"
+    assert result["tasks"][0]["status"] == "rejected"
+    assert result["result"] is None
+
+
+@pytest.mark.asyncio
+async def test_failed_planning_can_be_retried_after_provider_recovers(tmp_path):
+    async def broken(system, user):
+        raise RuntimeError("offline")
+
+    store = make_store(tmp_path, broken)
+    run_id = store.create("Planejar relatório seguro")["id"]
+    failed = await store.process(run_id)
+    assert failed["status"] == "failed"
+
+    async def recovered(system, user):
+        role = system.split(".")[0].removeprefix("ROLE:")
+        if role == "CEO_PLAN":
+            return plan(("Revisar relatório", None))
+        if role == "EXECUTOR":
+            return "revisado"
+        if role == "REVIEWER":
+            return OK
+        if role == "CEO_DELIVERY":
+            return "entrega revisada"
+        raise AssertionError(role)
+
+    store.llm_call = recovered
+    queued = store.retry(run_id)
+    assert queued["status"] == "queued"
+    result = await store.process(run_id)
+    assert result["status"] == "delivered"
+    assert result["result"] == "entrega revisada"
+
+
+def test_missing_run_and_already_decided_approval_return_errors(tmp_path):
+    async def unused(system, user):
+        raise AssertionError("not called")
+
+    store = make_store(tmp_path, unused)
+    with pytest.raises(KeyError):
+        store.get(999)
+    with pytest.raises(KeyError):
+        store.decide(999, True)
+
