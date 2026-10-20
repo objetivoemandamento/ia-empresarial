@@ -167,3 +167,5 @@ The separate **Agentes IA** tab creates a persisted run via `POST /api/agent-run
 - The `Conexões de IA` tab generates `AI_ROUTER_MODELS_JSON` for multiple providers. Configure each `api_key_env` variable in the backend/Render environment; do not paste API keys into the UI or Git.
 
 The orchestration layer produces and reviews text. Approval does **not** execute publishing, messaging, shell, browser or code execution. Those actions need separate real adapters, sandboxing and end-to-end tests. Financial transfers, payments and withdrawals are blocked. The REA tool is local developer tooling and is not connected to the production API yet; see `docs/REA_INTEGRATION.md`.
+
+See `docs/VALIDACAO_UI.md` for the supplied simulator compatibility assessment and the Playwright desktop/mobile validation strategy.
