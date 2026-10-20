@@ -209,17 +209,17 @@ def test_production_settings_require_llm_configuration():
 def test_production_router_requires_configured_secret_and_https(monkeypatch):
     router_json = json.dumps([{
         "id": "groq", "base_url": "https://api.groq.com/openai/v1", "model": "model-id",
-        "api_key_env": "TEST_PROD_GROQ_KEY", "tasks": ["general"]
+        "api_key_env": "TEST_PROD_GROQ_API_KEY", "tasks": ["general"]
     }])
-    monkeypatch.delenv("TEST_PROD_GROQ_KEY", raising=False)
+    monkeypatch.delenv("TEST_PROD_GROQ_API_KEY", raising=False)
     with pytest.raises(ValueError, match="API key environment variable"):
         Settings(app_env="production", admin_token="b" * 40, ai_router_models_json=router_json)
-    monkeypatch.setenv("TEST_PROD_GROQ_KEY", "test-only-key")
+    monkeypatch.setenv("TEST_PROD_GROQ_API_KEY", "test-only-key")
     assert Settings(app_env="production", admin_token="c" * 40, ai_router_models_json=router_json)
 
     insecure = json.dumps([{
         "id": "insecure", "base_url": "http://provider.example/v1", "model": "model-id",
-        "api_key_env": "TEST_PROD_GROQ_KEY", "tasks": ["general"]
+        "api_key_env": "TEST_PROD_GROQ_API_KEY", "tasks": ["general"]
     }])
     with pytest.raises(ValueError, match="API key environment variable"):
         Settings(app_env="production", admin_token="d" * 40, ai_router_models_json=insecure)
