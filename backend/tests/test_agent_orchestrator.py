@@ -342,3 +342,129 @@ async def test_background_run_failure_is_recorded_and_task_is_cleaned(monkeypatc
     await asyncio.sleep(0)
     assert not main._background_runs
 
+def test_json_parser_rejects_non_object_json():
+    from app.agent_orchestrator import _json
+    with pytest.raises(ValueError, match="must be object|deve ser objeto"):
+        _json("[]")
+
+
+@pytest.mark.parametrize("goal", ["", "Transferir dinheiro para terceiro"])
+def test_create_rejects_empty_and_financial_goals(tmp_path, goal):
+    store = make_store(tmp_path, unavailable_llm)
+    with pytest.raises(AgentRunError):
+        store.create(goal)
+
+
+def test_retry_rejects_non_failed_run(tmp_path):
+    store = make_store(tmp_path, unavailable_llm)
+    run = store.create("Objetivo seguro")
+    with pytest.raises(AgentRunError, match="Só execuções"):
+        store.retry(run["id"])
+
+
+@pytest.mark.asyncio
+async def test_call_rejects_empty_model_response(tmp_path):
+    async def empty(system, user):
+        return "   "
+    store = make_store(tmp_path, empty)
+    with pytest.raises(ValueError, match="Resposta vazia"):
+        await store._call("ROLE:EXECUTOR", "Tarefa segura")
+
+
+@pytest.mark.asyncio
+async def test_process_returns_existing_state_when_active_or_not_queued(tmp_path):
+    calls = []
+    async def llm(system, user):
+        calls.append(system)
+        return "unused"
+    store = make_store(tmp_path, llm)
+    run_id = store.create("Objetivo seguro")["id"]
+    store._active.add(run_id)
+    active = await store.process(run_id)
+    assert active["status"] == "queued"
+    store._active.discard(run_id)
+    store._status(run_id, "delivered", result="já entregue")
+    delivered = await store.process(run_id)
+    assert delivered["status"] == "delivered"
+    assert calls == []
+
+
+@pytest.mark.parametrize("plan_json", [
+    json.dumps({"tasks": []}),
+    json.dumps({"tasks": [1]}),
+    json.dumps({"tasks": [{"title": "", "instructions": "instrução"}]}),
+    json.dumps({"tasks": [{"title": "Tarefa", "instructions": "instrução", "sensitive_action": "execute_everything"}]}),
+])
+@pytest.mark.asyncio
+async def test_invalid_plan_shapes_fail_closed(tmp_path, plan_json):
+    async def llm(system, user):
+        return plan_json
+    store = make_store(tmp_path, llm)
+    result = await store.process(store.create("Objetivo seguro")["id"])
+    assert result["status"] == "failed"
+    assert result["result"] is None
+
+
+@pytest.mark.asyncio
+async def test_reviewer_rejection_marks_task_failed(tmp_path):
+    async def llm(system, user):
+        role = system.split(".")[0].removeprefix("ROLE:")
+        if role == "CEO_PLAN":
+            return plan(("Revisar relatório", None))
+        if role == "EXECUTOR":
+            return "resultado sem qualidade"
+        if role == "REVIEWER":
+            return json.dumps({"approved": False, "notes": "precisa corrigir"})
+        raise AssertionError(role)
+    store = make_store(tmp_path, llm)
+    result = await store.process(store.create("Revisar relatório seguro")["id"])
+    assert result["status"] == "failed"
+    assert result["tasks"][0]["status"] == "failed"
+    assert "Revisor solicitou correções" in result["tasks"][0]["error"]
+
+
+@pytest.mark.asyncio
+async def test_delivery_failure_is_recorded(tmp_path):
+    async def llm(system, user):
+        role = system.split(".")[0].removeprefix("ROLE:")
+        if role == "CEO_PLAN":
+            return plan(("Revisar relatório", None))
+        if role == "EXECUTOR":
+            return "resultado revisado"
+        if role == "REVIEWER":
+            return OK
+        if role == "CEO_DELIVERY":
+            raise RuntimeError("private failure")
+        raise AssertionError(role)
+    store = make_store(tmp_path, llm)
+    result = await store.process(store.create("Revisar relatório")["id"])
+    assert result["status"] == "failed"
+    assert result["error"] == "Falha na entrega: RuntimeError"
+
+
+@pytest.mark.asyncio
+async def test_code_execution_is_blocked_when_sandbox_disabled(tmp_path):
+    async def llm(system, user):
+        return plan(("Executar código", "code_execution"))
+    store = make_store(tmp_path, llm)
+    result = await store.process(store.create("Analisar código com segurança")["id"])
+    assert result["status"] == "failed"
+    assert result["tasks"][0]["status"] == "blocked"
+    assert "Sandbox" in result["tasks"][0]["error"]
+
+
+def test_recover_interrupted_runs_resets_running_tasks(tmp_path):
+    db_path = tmp_path / "runs.sqlite3"
+    store = AgentOrchestrator(db_path, unavailable_llm, lambda: {})
+    run_id = store.create("Objetivo seguro")["id"]
+    store._q(
+        "INSERT INTO agent_tasks(run_id,idx,title,instructions,action,status,error,specialist) VALUES(?,?,?,?,?,?,?,?)",
+        (run_id, 0, "Tarefa", "Instruções", None, "running", None, "Estratégia"),
+    )
+    store._status(run_id, "running")
+    recovered = AgentOrchestrator(db_path, unavailable_llm, lambda: {})
+    assert recovered.recover_interrupted() == 1
+    result = recovered.get(run_id)
+    assert result["status"] == "interrupted"
+    assert result["tasks"][0]["status"] == "pending"
+
