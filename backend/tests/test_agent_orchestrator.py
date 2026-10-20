@@ -260,3 +260,24 @@ def test_legacy_agent_task_database_migrates_specialist_column(tmp_path):
     columns = {row["name"] for row in migrated.db.execute("PRAGMA table_info(agent_tasks)")}
     assert "specialist" in columns
 
+@pytest.mark.asyncio
+async def test_assigned_specialist_is_persisted_and_used_by_executor(tmp_path):
+    seen = []
+    async def llm(system, user):
+        role = system.split(".")[0].removeprefix("ROLE:")
+        if role == "CEO_PLAN":
+            return plan(("Corrigir bug na API Python", None))
+        if role == "EXECUTOR":
+            seen.append(system)
+            return "bug corrigido no plano"
+        if role == "REVIEWER":
+            return OK
+        if role == "CEO_DELIVERY":
+            return "entrega"
+        raise AssertionError(role)
+
+    store = make_store(tmp_path, llm)
+    result = await store.process(store.create("Corrigir bug na API Python")["id"])
+    assert result["tasks"][0]["specialist"] == "Engenharia"
+    assert "Especialidade: Engenharia" in seen[0]
+
