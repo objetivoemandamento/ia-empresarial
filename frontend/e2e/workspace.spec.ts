@@ -65,6 +65,9 @@ test('workspace preserves home and exposes AI office, permissions, and connectio
 });
 
 test('admin can inspect a persisted agent run and its audit timeline', async ({ page }) => {
+  await page.route('**/api/human-tasks', route => route.fulfill({
+    status: 200, contentType: 'application/json', body: JSON.stringify({ tasks: [] }),
+  }));
   await page.route('**/api/agent-runs', route => route.fulfill({
     status: 200, contentType: 'application/json',
     body: JSON.stringify({ runs: [{ id: 1, goal: 'Revisar uma proposta', status: 'delivered', error: null, created: 1, updated: 2 }] }),
