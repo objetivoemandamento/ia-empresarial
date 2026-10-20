@@ -80,10 +80,13 @@ class AgentOrchestrator:
         self.db.row_factory = sqlite3.Row
         self.db.executescript("""
         CREATE TABLE IF NOT EXISTS agent_runs(id INTEGER PRIMARY KEY, goal TEXT NOT NULL, status TEXT NOT NULL, result TEXT, error TEXT, created REAL NOT NULL, updated REAL NOT NULL);
-        CREATE TABLE IF NOT EXISTS agent_tasks(id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL, idx INTEGER NOT NULL, title TEXT NOT NULL, instructions TEXT NOT NULL, action TEXT, status TEXT NOT NULL, output TEXT, review TEXT, attempts INTEGER NOT NULL DEFAULT 0, error TEXT);
+        CREATE TABLE IF NOT EXISTS agent_tasks(id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL, idx INTEGER NOT NULL, title TEXT NOT NULL, instructions TEXT NOT NULL, action TEXT, status TEXT NOT NULL, output TEXT, review TEXT, attempts INTEGER NOT NULL DEFAULT 0, error TEXT, specialist TEXT NOT NULL DEFAULT 'Estratégia');
         CREATE TABLE IF NOT EXISTS agent_approvals(id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL, task_id INTEGER NOT NULL, action TEXT NOT NULL, detail TEXT NOT NULL, status TEXT NOT NULL, created REAL NOT NULL, decided REAL);
         CREATE TABLE IF NOT EXISTS agent_events(id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL, ts REAL NOT NULL, kind TEXT NOT NULL, detail TEXT NOT NULL);
         """)
+        columns = {row["name"] for row in self.db.execute("PRAGMA table_info(agent_tasks)").fetchall()}
+        if "specialist" not in columns:
+            self.db.execute("ALTER TABLE agent_tasks ADD COLUMN specialist TEXT NOT NULL DEFAULT 'Estratégia'")
         self.db.commit()
 
     def _q(self, sql: str, args: tuple = ()):
@@ -192,8 +195,9 @@ class AgentOrchestrator:
                             status, error = "needs_approval", None
                         else:
                             status, error = "pending", None
-                        self._q("INSERT INTO agent_tasks(run_id,idx,title,instructions,action,status,error) VALUES(?,?,?,?,?,?,?)",
-                                (run_id,idx,title.strip()[:120],instructions.strip()[:2000],action,status,error))
+                        specialist = _specialty(title + " " + instructions)
+                        self._q("INSERT INTO agent_tasks(run_id,idx,title,instructions,action,status,error,specialist) VALUES(?,?,?,?,?,?,?,?)",
+                                (run_id,idx,title.strip()[:120],instructions.strip()[:2000],action,status,error,specialist))
                     self._event(run_id, "plan.created", str(len(plan)))
                 except Exception as exc:
                     self._status(run_id, "failed", "Falha no planejamento: " + exc.__class__.__name__)
@@ -212,7 +216,7 @@ class AgentOrchestrator:
                     for attempt in range(1, MAX_ATTEMPTS + 1):
                         self._q("UPDATE agent_tasks SET attempts=? WHERE id=?", (attempt,task["id"]))
                         try:
-                            result = await self._call(EXECUTOR.format(specialty=_specialty(task["title"]+" "+task["instructions"])),
+                            result = await self._call(EXECUTOR.format(specialty=task.get("specialist") or _specialty(task["title"]+" "+task["instructions"])),
                                 f"Tarefa: {task['title']}\nInstruções: {task['instructions']}")
                             review = _json(await self._call(REVIEWER, f"Tarefa: {task['title']}\nResultado: {result[:8000]}"))
                             if review.get("approved") is True:
