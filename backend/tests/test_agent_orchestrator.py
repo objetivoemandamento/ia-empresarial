@@ -5,7 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import main
-from app.agent_orchestrator import AgentOrchestrator, AgentRunError
+from app.agent_orchestrator import AgentOrchestrator, AgentRunError, SPECIALISTS, _specialty
 
 OK = json.dumps({"approved": True, "notes": "ok"})
 
@@ -136,3 +136,10 @@ def test_permission_api_saves_optional_controls_and_protects_invariants(api_clie
     assert api_client.patch("/api/policies", headers=headers, json={"security_audit": False}).status_code == 422
     audio = api_client.post("/api/audio/transcribe", data={"language": "pt"}, files={"file": ("audio.webm", b"audio", "audio/webm")})
     assert audio.status_code == 403
+
+def test_fifteen_specialist_routes_are_available():
+    assert len(SPECIALISTS) == 15
+    assert _specialty("Criar uma campanha de marketing") == "Marketing"
+    assert _specialty("Corrigir bug na API Python") == "Engenharia"
+    assert _specialty("Planejar integração MCP e webhook") == "Integrações"
+
