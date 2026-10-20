@@ -10,7 +10,7 @@ const LABEL: Record<string, string> = {
   needs_approval: 'Requer aprovação',
 };
 const ACTIVE = new Set(['queued', 'planning', 'running']);
-const SPECIALISTS = ['CEO coordenador', 'Estratégia', 'Pesquisa', 'Engenharia', 'Marketing', 'Vendas', 'Qualidade', 'Segurança', 'Produto', 'Operações', 'Dados', 'Compliance', 'Documentação', 'Integrações', 'Revisor'];
+const SPECIALISTS = ['CEO coordenador', 'Estratégia', 'Pesquisa', 'Engenharia', 'Qualidade', 'Segurança', 'Produto', 'UX e acessibilidade', 'Marketing', 'Vendas e parcerias', 'Análise financeira', 'Operações', 'Dados e métricas', 'Compliance e privacidade', 'Documentação', 'Integrações', 'Revisor'];
 
 const panelStyle = { background: 'var(--panel)', border: '1px solid var(--line)', borderRadius: 16, padding: 20, marginBottom: 16 } as const;
 const buttonStyle = { border: '1px solid var(--line)', background: 'var(--panel-2)', color: '#e9e9f3', borderRadius: 9, padding: '10px 13px', fontWeight: 600 } as const;
@@ -68,7 +68,7 @@ export function AgentOffice({ token, apiOnline, llmReady }: { token: string; api
       {SPECIALISTS.map((name, i) => <div key={name} style={{ background: 'var(--panel-2)', border: '1px solid var(--line)', borderRadius: 10, padding: 12 }}>
         <div style={{ color: i === 0 ? 'var(--violet)' : 'var(--blue)', fontSize: 10, letterSpacing: '.08em' }}>AGENTE {String(i + 1).padStart(2, '0')}</div>
         <strong style={{ display: 'block', marginTop: 6, fontSize: 12 }}>{name}</strong>
-        <small style={{ color: 'var(--muted)', display: 'block', marginTop: 4 }}>{i === 0 ? 'Coordena' : i === 14 ? 'Revisa resultados' : 'Persona especializada'}</small>
+        <small style={{ color: 'var(--muted)', display: 'block', marginTop: 4 }}>{i === 0 ? 'Coordena' : i === 16 ? 'Revisa resultados' : 'Persona especializada'}</small>
       </div>)}
     </div>
 
