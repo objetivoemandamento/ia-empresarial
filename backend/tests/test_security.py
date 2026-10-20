@@ -224,8 +224,8 @@ def test_directory_entries_are_normalized_and_extracted(tmp_path):
 def test_rejects_encrypted_archive_members(tmp_path):
     archive_path = make_zip(tmp_path / "encrypted.zip", {"manifest.json": manifest()})
     raw = bytearray(archive_path.read_bytes())
-    local_header = raw.find(b"PK\\x03\\x04")
-    central_header = raw.find(b"PK\\x01\\x02")
+    local_header = raw.find(b"PK\x03\x04")
+    central_header = raw.find(b"PK\x01\x02")
     assert local_header >= 0 and central_header >= 0
     raw[local_header + 6] |= 0x01
     raw[central_header + 8] |= 0x01
