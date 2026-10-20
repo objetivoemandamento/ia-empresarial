@@ -154,3 +154,16 @@ npm run dev
 Portas locais esperadas: frontend `5173`, backend `8000`, documentação da API `8000/docs`. A integração com nós móveis requer implementação e validação específicas; essas URLs não comprovam, por si só, comunicação com os celulares.
 
 See `docs/REA_INTEGRATION.md` for the safe local REA/MCP integration plan and current limitations.
+
+## CEO agent orchestration
+
+The separate **Agentes IA** tab creates a persisted run via `POST /api/agent-runs`. The CEO plans 1–15 tasks, up to four independent tasks run concurrently, each textual result is reviewed, and the CEO produces a final delivery. Runs and approval decisions are stored in SQLite under `DATA_DIR`.
+
+- `GET /api/agent-runs` and `GET /api/agent-runs/{id}`: list and inspect runs (admin token required).
+- `POST /api/agent-runs`: start a run with `{"goal":"..."}`.
+- `POST /api/agent-runs/{id}/retry`: retry a failed/interrupted run.
+- `POST /api/agent-approvals/{id}/decision`: approve/reject a sensitive task with `{"approve":true|false}`.
+- `GET /api/policies` and admin-only `PATCH /api/policies`: manage optional permissions; protected controls cannot be changed.
+- The `Conexões de IA` tab generates `AI_ROUTER_MODELS_JSON` for multiple providers. Configure each `api_key_env` variable in the backend/Render environment; do not paste API keys into the UI or Git.
+
+The orchestration layer produces and reviews text. Approval does **not** execute publishing, messaging, shell, browser or code execution. Those actions need separate real adapters, sandboxing and end-to-end tests. Financial transfers, payments and withdrawals are blocked. The REA tool is local developer tooling and is not connected to the production API yet; see `docs/REA_INTEGRATION.md`.
