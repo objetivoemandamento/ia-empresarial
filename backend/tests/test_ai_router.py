@@ -112,3 +112,25 @@ def test_router_refuses_non_secret_environment_variable_names(monkeypatch):
     }]))
     assert AIModelRouter(settings)._models() == []
 
+@pytest.mark.asyncio
+async def test_ceo_review_role_routes_to_analysis_model(monkeypatch):
+    monkeypatch.setenv("MARKETING_TEST_API_KEY", "marketing-secret")
+    monkeypatch.setenv("REVIEW_TEST_API_KEY", "review-secret")
+    config = json.dumps([
+        {"id": "marketing", "base_url": "https://marketing.example/v1", "model": "marketing-model",
+         "api_key_env": "MARKETING_TEST_API_KEY", "tasks": ["marketing"], "priority": 1},
+        {"id": "review", "base_url": "https://review.example/v1", "model": "review-model",
+         "api_key_env": "REVIEW_TEST_API_KEY", "tasks": ["analysis"], "priority": 2},
+    ])
+    FakeAsyncClient.responses = [FakeResponse("reviewed")]
+    FakeAsyncClient.requests = []
+    monkeypatch.setattr("app.llm.httpx.AsyncClient", FakeAsyncClient)
+    router = AIModelRouter(Settings(ai_router_models_json=config))
+    answer, provider = await router.respond([
+        {"role": "system", "content": "ROLE:REVIEWER. Revise o resultado"},
+        {"role": "user", "content": "Criar uma campanha de marketing"},
+    ], "pt", [])
+    assert answer == "reviewed"
+    assert provider == "router:review"
+    assert "review.example" in FakeAsyncClient.requests[0]["url"]
+
