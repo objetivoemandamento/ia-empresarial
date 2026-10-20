@@ -41,7 +41,9 @@ test('workspace preserves home and exposes AI office, permissions, and connectio
   await page.getByRole('button', { name: /Conexões/i }).click();
   await expect(page.getByRole('heading', { name: 'Conexões de IA' })).toBeVisible();
   await page.getByLabel('ID exato do modelo').fill('test-model-id');
-  await expect(page.getByRole('button', { name: 'Copiar configuração do roteador' })).toBeEnabled();
+  await page.getByRole('button', { name: 'Adicionar modelo' }).click();
+  await expect(page.getByText(/Groq · test-model-id/)).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Copiar configuração' })).toBeEnabled();
 
   await page.getByRole('button', { name: 'Escritório' }).click();
   await expect(page.getByRole('heading', { name: /Escritório/i }).first()).toBeVisible();
