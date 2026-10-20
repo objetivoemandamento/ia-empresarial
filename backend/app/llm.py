@@ -94,7 +94,11 @@ class AIModelRouter:
     async def respond(self, messages: list[dict[str, str]], language: str,
                       tools: list[dict[str, str]]) -> tuple[str, str]:
         latest = next((m.get("content", "") for m in reversed(messages) if m.get("role") == "user"), "")
-        task = _infer_task(latest)
+        role_hints = "\\n".join(m.get("content", "") for m in messages if m.get("role") == "system")
+        if any(role in role_hints for role in ("ROLE:CEO_PLAN", "ROLE:REVIEWER", "ROLE:CEO_DELIVERY")):
+            task = "analysis"
+        else:
+            task = _infer_task(latest)
         models = self._models()
         candidates = [m for m in models if task in m["tasks"] or "general" in m["tasks"] or "*" in m["tasks"]]
         candidates.sort(key=lambda m: (0 if task in m["tasks"] else 1, m["priority"]))
