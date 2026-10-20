@@ -31,7 +31,7 @@ test('workspace preserves home and exposes AI office, permissions, and connectio
   await expect(page.getByRole('heading', { name: /Escritório/i }).first()).toBeVisible();
 
   await page.getByRole('button', { name: /Agentes IA/i }).click();
-  await expect(page.getByRole('heading', { name: 'Escritório de IAs' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Escritório de IAs' }).first()).toBeVisible();
   await expect(page.getByText(/quatro tarefas independentes/i)).toBeVisible();
 
   await page.getByRole('button', { name: /Permissões/i }).click();
