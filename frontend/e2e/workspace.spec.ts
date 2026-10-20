@@ -35,11 +35,11 @@ test('workspace preserves home and exposes AI office, permissions, and connectio
   await expect(page.getByText(/quatro tarefas independentes/i)).toBeVisible();
 
   await page.getByRole('button', { name: /Permissões/i }).click();
-  await expect(page.getByRole('heading', { name: 'Permissões' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Permissões' }).first()).toBeVisible();
   await expect(page.getByText(/PROTEÇÕES OBRIGATÓRIAS/i)).toBeVisible();
 
   await page.getByRole('button', { name: /Conexões/i }).click();
-  await expect(page.getByRole('heading', { name: 'Conexões de IA' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Conexões de IA' }).first()).toBeVisible();
   await page.getByLabel('ID exato do modelo').fill('test-model-id');
   await page.getByRole('button', { name: 'Adicionar modelo' }).click();
   await expect(page.getByText(/Groq · test-model-id/)).toBeVisible();
