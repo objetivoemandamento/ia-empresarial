@@ -22,6 +22,8 @@ services:
         sync: false
       - key: LLM_MODEL
         sync: false
+      - key: AI_ROUTER_MODELS_JSON
+        sync: false
     disk:
       name: modular-ai-data
       mountPath: /var/data
