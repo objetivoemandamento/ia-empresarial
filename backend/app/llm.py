@@ -127,6 +127,15 @@ class LLMEngine:
         self.settings = settings
         self.router = AIModelRouter(settings)
 
+    @property
+    def is_ready(self) -> bool:
+        if self.settings.ai_router_models_json.strip():
+            try:
+                return bool(self.router._models())
+            except LLMUnavailable:
+                return False
+        return bool(self.settings.llm_base_url.strip() and self.settings.llm_api_key.strip() and self.settings.llm_model.strip())
+
     async def respond(self, messages: list[dict[str, str]], language: str,
                       tools: list[dict[str, str]]) -> tuple[str, str]:
         if self.settings.ai_router_models_json.strip():
