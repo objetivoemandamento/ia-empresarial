@@ -8,31 +8,47 @@ const PROVIDERS = [
   { id: 'mistral', name: 'Mistral AI', base: 'https://api.mistral.ai/v1', key: 'https://console.mistral.ai/api-keys', hint: 'Use o ID exato de modelo habilitado.' },
   { id: 'deepseek', name: 'DeepSeek', base: 'https://api.deepseek.com/v1', key: 'https://platform.deepseek.com/api_keys', hint: 'Confira preço, limites e retenção antes do uso.' },
 ];
+type ModelConfig = { id: string; provider: string; base_url: string; model: string; api_key_env: string; tasks: string[]; priority: number };
 const style = { background: 'var(--panel)', border: '1px solid var(--line)', borderRadius: 14, padding: 18, marginBottom: 12 } as const;
+const button = { border: '1px solid var(--line)', borderRadius: 9, padding: '9px 12px', color: '#e9e9f3', background: 'var(--panel-2)' } as const;
 
 export function ConnectionsView() {
   const [selected, setSelected] = useState('groq');
-  const [model, setModel] = useState('');
+  const [modelDraft, setModelDraft] = useState('');
+  const [models, setModels] = useState<ModelConfig[]>([]);
   const [copied, setCopied] = useState(false);
   const provider = PROVIDERS.find(p => p.id === selected) ?? PROVIDERS[0];
   const keyEnv = `${provider.id.toUpperCase()}_API_KEY`;
-  const config = JSON.stringify([{
-    id: provider.id, provider: provider.name, base_url: provider.base, model: model.trim(),
-    api_key_env: keyEnv, tasks: ['general', 'coding', 'research', 'marketing', 'analysis'], priority: 10,
-  }]);
+  const configurationText = `AI_ROUTER_MODELS_JSON=${JSON.stringify(models)}\n${models.map(m => `${m.api_key_env}=COLOQUE_A_CHAVE_SECRETA_NO_RENDER`).join('\n')}`;
 
+  function addModel() {
+    if (!modelDraft.trim()) return;
+    const entry: ModelConfig = {
+      id: provider.id, provider: provider.name, base_url: provider.base, model: modelDraft.trim(),
+      api_key_env: keyEnv, tasks: ['general', 'coding', 'research', 'marketing', 'analysis'],
+      priority: models.length * 10 + 10,
+    };
+    setModels(old => old.some(m => m.id === entry.id) ? old.map(m => m.id === entry.id ? entry : m) : [...old, entry]);
+    setModelDraft('');
+    setCopied(false);
+  }
   async function copy() {
-    const snippet = `AI_ROUTER_MODELS_JSON=${config}\n${keyEnv}=COLOQUE_A_CHAVE_SECRETA_NO_RENDER`;
-    try { await navigator.clipboard.writeText(snippet); setCopied(true); }
+    if (!models.length) return;
+    try { await navigator.clipboard.writeText(configurationText); setCopied(true); }
     catch { setCopied(false); }
   }
 
   return <section style={{ paddingBottom: 30 }}>
-    <div style={{ marginBottom: 20 }}><span className="section-kicker">ROTEAMENTO MULTI-MODELO</span><h2 style={{ fontFamily: 'Space Grotesk', fontSize: 28, margin: '8px 0' }}>Conexões de IA</h2><p style={{ color: 'var(--muted)', lineHeight: 1.6 }}>Prepare a configuração do roteador. Esta página não armazena nem envia chaves secretas.</p></div>
-    <div style={{ ...style, borderColor: '#b8abff' }}><strong>Importante: catálogo não é conexão ativa</strong><p style={{ color: 'var(--muted)', lineHeight: 1.6 }}>Escolher um provedor não cria conta nem habilita um modelo. A chave e o JSON precisam ser configurados no ambiente privado do backend/Render. Não cole segredos nesta interface.</p></div>
+    <div style={{ marginBottom: 20 }}><span className="section-kicker">ROTEAMENTO MULTI-MODELO</span><h2 style={{ fontFamily: 'Space Grotesk', fontSize: 28, margin: '8px 0' }}>Conexões de IA</h2><p style={{ color: 'var(--muted)', lineHeight: 1.6 }}>Monte uma lista de modelos e gere a configuração do roteador. Esta página não armazena nem envia chaves secretas.</p></div>
+    <div style={{ ...style, borderColor: '#b8abff' }}><strong>Catálogo não significa conexão ativa</strong><p style={{ color: 'var(--muted)', lineHeight: 1.6 }}>Adicionar um modelo aqui só prepara o JSON. Configure o ID real do modelo e as chaves no ambiente privado do backend/Render. Nunca cole segredos nesta interface.</p></div>
     <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit,minmax(230px,1fr))', gap: 12 }}>
-      <div style={style}><span className="section-kicker">PROVEDORES</span>{PROVIDERS.map(p => <button key={p.id} type="button" onClick={() => { setSelected(p.id); setModel(''); setCopied(false); }} style={{ display: 'block', width: '100%', textAlign: 'left', marginTop: 8, padding: 12, borderRadius: 9, border: `1px solid ${selected === p.id ? '#a99aff' : 'var(--line)'}`, background: selected === p.id ? '#302a45' : 'var(--panel-2)', color: '#e9e9f3' }}><strong>{p.name}</strong><small style={{ display: 'block', color: 'var(--muted)', marginTop: 4 }}>{p.base}</small></button>)}</div>
-      <div style={style}><span className="section-kicker">CONFIGURAÇÃO</span><h3>{provider.name}</h3><p style={{ color: 'var(--muted)' }}>{provider.hint}</p><label className="field">Base URL<input readOnly value={provider.base} onFocus={e => e.currentTarget.select()} /></label><label className="field">ID exato do modelo<input value={model} onChange={e => { setModel(e.target.value); setCopied(false); }} placeholder="Ex.: identificador do painel do provedor" /></label><p style={{ fontSize: 12, color: 'var(--muted)' }}>Variável secreta a criar no backend: <code>{keyEnv}</code></p><a className="upload-button" href={provider.key} target="_blank" rel="noreferrer" style={{ display: 'inline-block', textDecoration: 'none' }}>Abrir painel oficial ↗</a><button className="upload-button" type="button" disabled={!model.trim()} onClick={() => void copy()} style={{ marginLeft: 8 }}>{copied ? 'Configuração copiada' : 'Copiar configuração do roteador'}</button><p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6 }}>O núcleo suporta endpoints compatíveis com <code>/chat/completions</code>. A disponibilidade gratuita, os modelos e os limites devem ser confirmados no provedor.</p></div>
+      <div style={style}><span className="section-kicker">PROVEDORES</span>{PROVIDERS.map(p => <button key={p.id} type="button" onClick={() => { setSelected(p.id); setModelDraft(''); setCopied(false); }} style={{ display: 'block', width: '100%', textAlign: 'left', marginTop: 8, padding: 12, borderRadius: 9, border: `1px solid ${selected === p.id ? '#a99aff' : 'var(--line)'}`, background: selected === p.id ? '#302a45' : 'var(--panel-2)', color: '#e9e9f3' }}><strong>{p.name}</strong><small style={{ display: 'block', color: 'var(--muted)', marginTop: 4 }}>{p.base}</small></button>)}</div>
+      <div style={style}><span className="section-kicker">ADICIONAR MODELO</span><h3>{provider.name}</h3><p style={{ color: 'var(--muted)' }}>{provider.hint}</p><label className="field">Base URL<input readOnly value={provider.base} onFocus={e => e.currentTarget.select()} /></label><label className="field">ID exato do modelo<input value={modelDraft} onChange={e => { setModelDraft(e.target.value); setCopied(false); }} placeholder="Cole o ID do painel oficial" /></label><p style={{ fontSize: 12, color: 'var(--muted)' }}>Variável secreta no backend: <code>{keyEnv}</code></p><a className="upload-button" href={provider.key} target="_blank" rel="noreferrer" style={{ display: 'inline-block', textDecoration: 'none' }}>Abrir painel oficial ↗</a><button className="upload-button" type="button" disabled={!modelDraft.trim()} onClick={addModel} style={{ marginLeft: 8 }}>Adicionar modelo</button></div>
+    </div>
+    <div style={style}><div className="panel-heading"><div><span className="section-kicker">ROTEADOR</span><h3>Modelos configurados</h3></div><button type="button" style={button} disabled={!models.length} onClick={() => void copy()}>{copied ? 'Configuração copiada' : 'Copiar configuração'}</button></div>
+      {!models.length ? <p style={{ color: 'var(--muted)' }}>Adicione pelo menos um modelo. Para fallback real, adicione dois ou mais provedores.</p> : models.map(m => <div key={m.id} className="activity-row"><div style={{ flex: 1 }}><strong>{m.provider} · {m.model}</strong><p>{m.base_url} · prioridade {m.priority} · {m.api_key_env}</p></div><button type="button" style={button} onClick={() => { setModels(old => old.filter(x => x.id !== m.id)); setCopied(false); }}>Remover</button></div>)}
+      <details style={{ marginTop: 12 }}><summary>Ver configuração para copiar manualmente</summary><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere', fontSize: 11, color: 'var(--muted)' }}>{models.length ? configurationText : 'Adicione um modelo para gerar a configuração.'}</pre></details>
+      <p style={{ fontSize: 12, color: 'var(--muted)', lineHeight: 1.6 }}>O núcleo suporta endpoints compatíveis com <code>/chat/completions</code>. Confirme a disponibilidade, os limites, o custo e as condições de cada provedor antes de usá-lo.</p>
     </div>
   </section>;
 }
