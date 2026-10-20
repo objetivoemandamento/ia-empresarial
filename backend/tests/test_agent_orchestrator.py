@@ -136,6 +136,10 @@ def test_permission_api_saves_optional_controls_and_protects_invariants(api_clie
     assert api_client.patch("/api/policies", headers=headers, json={"security_audit": False}).status_code == 422
     audio = api_client.post("/api/audio/transcribe", data={"language": "pt"}, files={"file": ("audio.webm", b"audio", "audio/webm")})
     assert audio.status_code == 403
+    skills = api_client.post("/api/repositories/upload", headers=headers, files={"file": ("skills.zip", b"not-a-zip", "application/zip")})
+    assert skills.status_code == 403
+    chat = api_client.post("/api/chat", json={"messages": [{"role": "user", "content": "oi"}], "skill_ids": ["example"], "language": "pt"})
+    assert chat.status_code == 403
 
 def test_fifteen_specialist_routes_are_available():
     assert len(SPECIALISTS) == 15
