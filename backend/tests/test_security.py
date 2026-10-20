@@ -179,3 +179,35 @@ def test_rejects_multiple_manifests_and_files_outside_package_root(tmp_path):
     with pytest.raises(ValueError, match="outside the manifest"):
         manager.install_zip(mixed)
 
+def test_skill_catalog_write_failures_roll_back_state_and_cleanup(tmp_path, monkeypatch):
+    z = make_zip(tmp_path / "skill.zip", {"manifest.json": manifest()})
+    manager = SkillManager(settings(tmp_path))
+    monkeypatch.setattr(manager, "_save_catalog_locked", lambda: (_ for _ in ()).throw(OSError("disk unavailable")))
+    with pytest.raises(OSError):
+        manager.install_zip(z)
+    assert manager.list_skills() == []
+    assert not list(manager.root.glob("pending-*"))
+
+
+def test_skill_approval_and_rejection_failures_restore_pending_state(tmp_path, monkeypatch):
+    z1 = make_zip(tmp_path / "one.zip", {"manifest.json": manifest()})
+    second_manifest = manifest().replace("hello-skill", "second-skill")
+    z2 = make_zip(tmp_path / "two.zip", {"manifest.json": second_manifest})
+    manager = SkillManager(settings(tmp_path))
+    first = manager.install_zip(z1)
+    second = manager.install_zip(z2)
+    original_save = manager._save_catalog_locked
+    with pytest.raises(KeyError):
+        manager.approve("missing")
+    monkeypatch.setattr(manager, "_save_catalog_locked", lambda: (_ for _ in ()).throw(OSError("disk unavailable")))
+    with pytest.raises(OSError):
+        manager.approve(first.id)
+    assert manager.catalog[first.id]["status"] == "pending_review"
+    with pytest.raises(OSError):
+        manager.reject(second.id)
+    assert manager.catalog[second.id]["status"] == "pending_review"
+    monkeypatch.setattr(manager, "_save_catalog_locked", original_save)
+    manager.approve(first.id)
+    with pytest.raises(ValueError, match="pending review"):
+        manager.approve(first.id)
+
