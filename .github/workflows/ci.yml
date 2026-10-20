@@ -2,7 +2,7 @@ name: Validate Escritório de IAs
 
 on:
   push:
-    branches: [main, 'feat/**', 'chore/**']
+    branches: [main, 'chore/**']
   pull_request:
     branches: [main, 'chore/**']
   workflow_dispatch:
