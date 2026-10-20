@@ -27,18 +27,19 @@ test.beforeEach(async ({ page }) => {
 });
 
 test('workspace preserves home and exposes AI office, permissions, and connections tabs', async ({ page }) => {
+  const project = test.info().project.name;
   await page.goto('/');
   await expect(page.getByRole('heading', { name: /Escritório/i }).first()).toBeVisible();
 
   await page.getByRole('button', { name: /Agentes IA/i }).click();
   await expect(page.getByRole('heading', { name: 'Escritório de IAs' }).first()).toBeVisible();
   await expect(page.getByText(/quatro tarefas independentes/i)).toBeVisible();
-  await page.screenshot({ path: 'test-results/office.png', fullPage: true });
+  await page.screenshot({ path: `test-results/${project}-office.png`, fullPage: true });
 
   await page.getByRole('button', { name: /Permissões/i }).click();
   await expect(page.getByRole('heading', { name: 'Permissões' }).first()).toBeVisible();
   await expect(page.getByText('PROTEÇÕES OBRIGATÓRIAS', { exact: true })).toBeVisible();
-  await page.screenshot({ path: 'test-results/permissions.png', fullPage: true });
+  await page.screenshot({ path: `test-results/${project}-permissions.png`, fullPage: true });
 
   await page.getByRole('button', { name: /Conexões/i }).click();
   await expect(page.getByRole('heading', { name: 'Conexões de IA' }).first()).toBeVisible();
@@ -46,9 +47,9 @@ test('workspace preserves home and exposes AI office, permissions, and connectio
   await page.getByRole('button', { name: 'Adicionar modelo' }).click();
   await expect(page.getByText(/Groq · test-model-id/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Copiar configuração' })).toBeEnabled();
-  await page.screenshot({ path: 'test-results/connections.png', fullPage: true });
+  await page.screenshot({ path: `test-results/${project}-connections.png`, fullPage: true });
 
   await page.getByRole('button', { name: 'Escritório' }).click();
   await expect(page.getByRole('heading', { name: /Escritório/i }).first()).toBeVisible();
-  await page.screenshot({ path: 'test-results/home.png', fullPage: true });
+  await page.screenshot({ path: `test-results/${project}-home.png`, fullPage: true });
 });
