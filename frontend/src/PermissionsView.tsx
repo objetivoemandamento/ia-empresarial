@@ -44,7 +44,7 @@ export function PermissionsView({ token }: { token: string }) {
   useEffect(() => { void load(); }, []);
 
   async function save() {
-    if (!token.trim()) { setError('Informe o token administrativo na tela inicial para salvar permissões.'); return; }
+    if (!token.trim()) { setError('Informe o token administrativo no painel Capacidades da tela inicial para salvar permissões.'); return; }
     setBusy(true); setNotice(''); setError('');
     try {
       const r = await fetch(`${API}/api/policies`, {
