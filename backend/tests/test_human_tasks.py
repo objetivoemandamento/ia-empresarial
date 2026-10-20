@@ -161,3 +161,58 @@ def test_migration_upgrade_downgrade_and_reupgrade(tmp_path):
         "SELECT name FROM sqlite_master WHERE type='table' AND name='human_tasks'"
     ).fetchone()
     connection.close()
+
+def test_update_task_fields_and_filter_by_owner_and_status(task_client):
+    first = create_task(task_client, title="Tarefa A", owner="Alice")
+    create_task(task_client, title="Tarefa B", owner="Bob")
+    updated = task_client.patch(
+        f"/api/human-tasks/{first['id']}", headers=HEADERS,
+        json={"title": "Tarefa A revisada", "priority": "urgent", "owner": "Alice"},
+    )
+    assert updated.status_code == 200
+    assert updated.json()["task"]["title"] == "Tarefa A revisada"
+    assert updated.json()["task"]["priority"] == "urgent"
+    alice = task_client.get("/api/human-tasks?owner=Alice", headers=HEADERS).json()["tasks"]
+    assert len(alice) == 1 and alice[0]["id"] == first["id"]
+    open_tasks = task_client.get("/api/human-tasks?status=open", headers=HEADERS).json()["tasks"]
+    assert len(open_tasks) == 2
+
+
+def test_dependency_cycle_is_rejected_on_update(task_client):
+    first = create_task(task_client, title="Tarefa primeira")
+    second = create_task(task_client, title="Tarefa segunda", dependencies=[first["id"]])
+    response = task_client.patch(
+        f"/api/human-tasks/{first['id']}", headers=HEADERS,
+        json={"dependencies": [second["id"]]},
+    )
+    assert response.status_code == 409
+    assert "circular" in response.json()["detail"].lower()
+
+
+def test_completed_task_cannot_be_updated(task_client):
+    task = create_task(task_client, title="Tarefa concluível")
+    completed = task_client.post(
+        f"/api/human-tasks/{task['id']}/complete", headers=HEADERS,
+        json={"note": "Feito"},
+    )
+    assert completed.status_code == 200
+    update = task_client.patch(
+        f"/api/human-tasks/{task['id']}", headers=HEADERS,
+        json={"title": "Tentar alterar após conclusão"},
+    )
+    assert update.status_code == 409
+
+
+@pytest.mark.parametrize("payload", [
+    {"title": "Revisar documento", "description": "Fazer um Pix para terceiro"},
+    {"title": "Revisar documento", "evidence": ["Enviar dinheiro ao fornecedor"]},
+])
+def test_financial_actions_are_rejected_in_description_and_evidence(task_client, payload):
+    response = task_client.post("/api/human-tasks", headers=HEADERS, json=payload)
+    assert response.status_code == 403
+
+
+def test_missing_task_and_history_return_404(task_client):
+    assert task_client.get("/api/human-tasks/missing-id", headers=HEADERS).status_code == 404
+    assert task_client.get("/api/human-tasks/missing-id/history", headers=HEADERS).status_code == 404
+
