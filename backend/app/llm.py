@@ -4,6 +4,7 @@ import json
 import os
 import re
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
@@ -55,24 +56,35 @@ class AIModelRouter:
             raise LLMUnavailable("AI_ROUTER_MODELS_JSON must be a JSON array")
         models = []
         for item in parsed:
-            if not isinstance(item, dict) or not item.get("id") or not item.get("base_url") or not item.get("model"):
+            if not isinstance(item, dict) or item.get("enabled", True) is False:
                 continue
-            if item.get("enabled", True) is False:
+            required = (item.get("id"), item.get("base_url"), item.get("model"), item.get("api_key_env"))
+            if not all(isinstance(value, str) and value.strip() for value in required):
                 continue
-            env_name = item.get("api_key_env", "")
-            api_key = os.getenv(env_name, "") if isinstance(env_name, str) and env_name else ""
+            base_url = item["base_url"].strip()
+            parsed_url = urlparse(base_url)
+            if parsed_url.scheme not in {"https", "http"} or not parsed_url.netloc or parsed_url.username or parsed_url.password:
+                continue
+            if parsed_url.scheme != "https" and parsed_url.hostname not in {"localhost", "127.0.0.1", "::1"}:
+                continue
+            env_name = item["api_key_env"].strip()
+            api_key = os.getenv(env_name, "")
             if not api_key:
                 continue
             tasks = item.get("tasks", ["general"])
-            if not isinstance(tasks, list):
+            if not isinstance(tasks, list) or not tasks:
                 tasks = ["general"]
+            try:
+                priority = int(item.get("priority", 100))
+            except (TypeError, ValueError):
+                priority = 100
             models.append({
-                "id": str(item["id"]),
-                "base_url": str(item["base_url"]).rstrip("/"),
-                "model": str(item["model"]),
+                "id": item["id"].strip(),
+                "base_url": base_url.rstrip("/"),
+                "model": item["model"].strip(),
                 "api_key": api_key,
                 "tasks": [str(task).lower() for task in tasks],
-                "priority": int(item.get("priority", 100)),
+                "priority": priority,
                 "provider": str(item.get("provider", item["id"])),
             })
         return models
