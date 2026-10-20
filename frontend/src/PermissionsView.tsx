@@ -14,7 +14,7 @@ const OPTIONAL: { key: keyof Omit<Policies, 'protected_controls'>; title: string
   { key: 'approved_skills_enabled', title: 'Capacidades aprovadas', description: 'Permite instalar, moderar e utilizar skills declarativas aprovadas.' },
   { key: 'external_network_enabled', title: 'Rede externa para agentes', description: 'Mantida desativada por padrão; não cria um executor de rede por si só.' },
   { key: 'prime_sandbox_enabled', title: 'Sandbox de código', description: 'Mantido desativado até existir um executor isolado validado.' },
-  { key: 'optional_telemetry_enabled', title: 'Telemetria opcional', description: 'Controle de telemetria não essencial.' },
+  { key: 'optional_telemetry_enabled', title: 'Telemetria opcional', description: 'Configuração reservada; não ativa coleta enquanto não houver módulo de telemetria.' },
 ];
 const boxStyle = { background: 'var(--panel)', border: '1px solid var(--line)', borderRadius: 14, padding: 18, marginBottom: 12 } as const;
 
