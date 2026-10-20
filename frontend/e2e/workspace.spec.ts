@@ -56,6 +56,10 @@ test('workspace preserves home and exposes AI office, permissions, and connectio
   await page.screenshot({ path: `test-results/${project}-connections.png`, fullPage: true });
 
   await page.getByRole('button', { name: 'Escritório' }).click();
+  await page.getByRole('button', { name: /Conexões/i }).click();
+  await expect(page.getByText(/Groq · test-model-id/)).toBeVisible();
+
+  await page.getByRole('button', { name: 'Escritório' }).click();
   await expect(page.getByRole('heading', { name: /Escritório/i }).first()).toBeVisible();
   await page.screenshot({ path: `test-results/${project}-home.png`, fullPage: true });
 });
