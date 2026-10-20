@@ -6,7 +6,7 @@
 - [ ] Set `ALLOWED_ORIGINS` to the exact public frontend origin.
 - [ ] Configure either all of `LLM_BASE_URL`, `LLM_API_KEY`, `LLM_MODEL` or `AI_ROUTER_MODELS_JSON` plus at least one provider secret referenced by `api_key_env`.
 - [ ] Use HTTPS for remote model endpoints; the production validator rejects remote HTTP endpoints and missing router secrets.
-- [ ] Confirm `DATA_DIR=/var/data` and the persistent disk in `render.yaml` are active for the deployed service.
+- [ ] Confirm `DATA_DIR=/var/data` and the persistent disk in `render.yaml` are active for the deployed service. SQLite on a free Render instance without a disk is ephemeral and run history can be lost on restart. If the disk requires a paid plan, get explicit cost approval or use a dedicated database; do not reuse another product's Supabase project.
 - [ ] Do not deploy the PR branch to the existing Render service until credentials are configured; production startup is intentionally blocked without a usable provider.
 
 ## Acceptance tests
