@@ -342,7 +342,7 @@ async def test_background_run_failure_is_recorded_and_task_is_cleaned(monkeypatc
     await asyncio.sleep(0)
     assert not main._background_runs
 
-def test_json_parser_rejects_non_object_json():
+def test_json_parser_rejects_missing_object_syntax():
     from app.agent_orchestrator import _json
     with pytest.raises(ValueError, match="sem JSON válido"):
         _json("[]")
