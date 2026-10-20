@@ -44,8 +44,14 @@ test('workspace preserves home and exposes AI office, permissions, and connectio
   await page.getByRole('button', { name: /Conexões/i }).click();
   await expect(page.getByRole('heading', { name: 'Conexões de IA' }).first()).toBeVisible();
   await page.getByLabel('ID exato do modelo').fill('test-model-id');
+  for (const task of ['general', 'research', 'marketing', 'analysis']) {
+    await page.getByLabel(task, { exact: true }).uncheck();
+  }
+  await expect(page.getByLabel('coding', { exact: true })).toBeChecked();
   await page.getByRole('button', { name: 'Adicionar modelo' }).click();
   await expect(page.getByText(/Groq · test-model-id/)).toBeVisible();
+  await page.getByText('Ver configuração para copiar manualmente').click();
+  await expect(page.getByText(/"tasks":\["coding"\]/)).toBeVisible();
   await expect(page.getByRole('button', { name: 'Copiar configuração' })).toBeEnabled();
   await page.screenshot({ path: `test-results/${project}-connections.png`, fullPage: true });
 
