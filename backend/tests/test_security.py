@@ -80,3 +80,60 @@ def test_skill_id_duplicate_is_rejected_without_replacing_original(tmp_path):
         manager.install_zip(z2)
     assert manager.list_skills()[0].id == first.id
     assert manager.list_skills()[0].status == "pending_review"
+
+def test_rejects_empty_zip_and_missing_manifest(tmp_path):
+    empty = tmp_path / "empty.zip"
+    with zipfile.ZipFile(empty, "w"):
+        pass
+    with pytest.raises(UnsafeArchive, match="Empty"):
+        inspect_zip(empty, settings(tmp_path))
+    no_manifest = make_zip(tmp_path / "no-manifest.zip", {"readme.txt": "hello"})
+    with pytest.raises(UnsafeArchive, match="manifest.json"):
+        inspect_zip(no_manifest, settings(tmp_path))
+
+
+def test_rejects_too_many_entries_and_uncompressed_size(tmp_path):
+    many = make_zip(tmp_path / "many.zip", {
+        "manifest.json": manifest(), "one.txt": "1", "two.txt": "2",
+    })
+    with pytest.raises(UnsafeArchive, match="too many"):
+        inspect_zip(many, Settings(data_dir=tmp_path, max_zip_files=2,
+                                  max_uncompressed_bytes=1_000_000, max_compression_ratio=100))
+    large = make_zip(tmp_path / "large.zip", {"manifest.json": manifest(), "large.txt": "x" * 5000})
+    with pytest.raises(UnsafeArchive, match="size limit"):
+        inspect_zip(large, Settings(data_dir=tmp_path, max_zip_files=100,
+                                   max_uncompressed_bytes=1000, max_compression_ratio=100))
+
+
+def test_rejects_duplicate_archive_paths(tmp_path):
+    archive_path = tmp_path / "duplicate.zip"
+    with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_STORED) as z:
+        z.writestr("manifest.json", manifest())
+        z.writestr("docs/readme.txt", "one")
+        z.writestr("docs/readme.txt", "two")
+    with pytest.raises(UnsafeArchive, match="Duplicate"):
+        inspect_zip(archive_path, settings(tmp_path))
+
+
+def test_rejects_symlink_and_special_archive_entries(tmp_path):
+    archive_path = tmp_path / "symlink.zip"
+    link = zipfile.ZipInfo("link")
+    link.create_system = 3
+    link.external_attr = (0o120777 << 16)
+    with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_STORED) as z:
+        z.writestr("manifest.json", manifest())
+        z.writestr(link, "target.txt")
+    with pytest.raises(UnsafeArchive, match="Links and special"):
+        inspect_zip(archive_path, settings(tmp_path))
+
+
+def test_rejects_high_compression_ratio(tmp_path):
+    archive_path = tmp_path / "ratio.zip"
+    with zipfile.ZipFile(archive_path, "w", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("manifest.json", manifest())
+        z.writestr("repeat.txt", "A" * 10000)
+    limits = Settings(data_dir=tmp_path, max_zip_files=100,
+                      max_uncompressed_bytes=1_000_000, max_compression_ratio=2)
+    with pytest.raises(UnsafeArchive, match="compression ratio"):
+        inspect_zip(archive_path, limits)
+
