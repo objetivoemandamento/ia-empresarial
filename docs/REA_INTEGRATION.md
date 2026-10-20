@@ -25,4 +25,4 @@ O roteador multi-modelo atual suporta endpoints OpenAI-compatible. REA ainda nã
 - [ ] Tentativas de escrita, publicação, rede ou execução de código ficam bloqueadas ou aguardam aprovação.
 - [ ] Testes cobrem timeout, processo encerrado, saída inválida e ausência do REA.
 
-**Status atual:** integração documentada, ainda não executada. Não marcar REA como conectado até passar os critérios acima.
+**Status atual:** REA foi adicionado como auditoria estática opcional do frontend no GitHub Actions, com relatório como artefato e sem bloquear o build se o CLI não puder executar. Isso não é uma conexão MCP de runtime nem prova de execução de ferramentas. Não marcar REA como conectado ao backend até passar os critérios acima.
