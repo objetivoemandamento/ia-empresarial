@@ -259,8 +259,8 @@ export default function App() {
       <a className="brand-mark" href="#top" aria-label="Início"><span className="pixel-logo">V</span></a>
       <nav className="rail-nav" aria-label="Navegação do escritório">
         <a className={`rail-link ${activeTab === 'home' ? 'selected' : ''}`} href="#top" title="Escritório" onClick={() => setActiveTab('home')}><span>▦</span><small>Escritório</small></a>
-        <button type="button" className={`rail-link ${activeTab === 'office' ? 'selected' : ''}`} title="Escritório de IAs" onClick={() => setActiveTab('office')}><span>♟</span><small>Agentes IA</small></button>
-        <button type="button" className={`rail-link ${activeTab === 'permissions' ? 'selected' : ''}`} title="Permissões" onClick={() => setActiveTab('permissions')}><span>⚙</span><small>Permissões</small></button>
+        <button type="button" className="rail-link" title="Escritório de IAs" onClick={() => setActiveTab('office')}><span>♟</span><small>Agentes IA</small></button>
+        <button type="button" className="rail-link" title="Permissões" onClick={() => setActiveTab('permissions')}><span>⚙</span><small>Permissões</small></button>
         <a className="rail-link" href="#conversation" title="Conversa" onClick={() => setActiveTab('home')}><span>▤</span><small>Conversa</small></a>
         <a className="rail-link" href="#skills" title="Capacidades"><span>⌘</span><small>Skills</small></a>
         <a className="rail-link" href="#human-tasks" title="Minhas tarefas"><span>✓</span><small>Tarefas</small></a>
