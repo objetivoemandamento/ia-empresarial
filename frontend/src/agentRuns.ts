@@ -3,10 +3,11 @@ export type AgentTask = {
   status: string; output: string | null; review: string | null; attempts: number; error: string | null;
 };
 export type AgentApproval = { id: number; task_id: number; action: string; detail: string; status: 'pending' | 'approved' | 'rejected' };
+export type AgentEvent = { id: number; run_id: number; ts: number; kind: string; detail: string };
 export type AgentRunSummary = { id: number; goal: string; status: string; error: string | null; created: number; updated: number };
 export type AgentRun = {
   id: number; goal: string; status: string; result: string | null; error: string | null;
-  tasks: AgentTask[]; approvals: AgentApproval[];
+  tasks: AgentTask[]; approvals: AgentApproval[]; events: AgentEvent[];
 };
 const API = import.meta.env.VITE_API_BASE ?? '';
 async function request<T>(path: string, token: string, init: RequestInit = {}): Promise<T> {
