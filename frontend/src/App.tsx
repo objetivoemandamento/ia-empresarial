@@ -6,6 +6,7 @@ import { listHumanTasks, createHumanTask, decideHumanTask, changeHumanTaskStatus
 import type { HumanTask, HumanTaskPriority } from './humanTasks';
 import { AgentOffice } from './AgentOffice';
 import { PermissionsView } from './PermissionsView';
+import { ConnectionsView } from './ConnectionsView';
 
 type Message = { role: 'user' | 'assistant'; content: string };
 type Activity = { id: number; time: string; label: string; detail: string; tone: 'blue' | 'green' | 'amber' };
@@ -20,7 +21,7 @@ const initial: Message[] = [{ role: 'assistant', content: 'Bem-vindo ao escritó
 const clock = () => new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
 
 export default function App() {
-  const [activeTab, setActiveTab] = useState<'home' | 'office' | 'permissions'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'office' | 'permissions' | 'connections'>('home');
   const [language, setLanguage] = useState<Language | 'auto'>('pt');
   const [messages, setMessages] = useState<Message[]>(initial);
   const [draft, setDraft] = useState('');
@@ -233,7 +234,7 @@ export default function App() {
   }
 
   if (activeTab !== 'home') {
-    const officeTitle = activeTab === 'office' ? 'Escritório de IAs' : 'Permissões';
+    const officeTitle = activeTab === 'office' ? 'Escritório de IAs' : activeTab === 'permissions' ? 'Permissões' : 'Conexões de IA';
     return <div className="app-frame">
       <aside className="rail">
         <a className="brand-mark" href="#top" aria-label="Início" onClick={() => setActiveTab('home')}><span className="pixel-logo">V</span></a>
@@ -241,6 +242,7 @@ export default function App() {
           <button type="button" className="rail-link" onClick={() => setActiveTab('home')}><span>▦</span><small>Escritório</small></button>
           <button type="button" className={`rail-link ${activeTab === 'office' ? 'selected' : ''}`} onClick={() => setActiveTab('office')}><span>♟</span><small>Agentes IA</small></button>
           <button type="button" className={`rail-link ${activeTab === 'permissions' ? 'selected' : ''}`} onClick={() => setActiveTab('permissions')}><span>⚙</span><small>Permissões</small></button>
+          <button type="button" className={`rail-link ${activeTab === 'connections' ? 'selected' : ''}`} onClick={() => setActiveTab('connections')}><span>↔</span><small>Conexões</small></button>
         </nav>
         <div className="rail-bottom"><span className={`connection-dot ${apiOnline ? 'online' : apiOnline === false ? 'offline' : ''}`} /><small>{apiOnline ? 'API' : apiOnline === false ? 'Offline' : '…'}</small></div>
       </aside>
@@ -249,7 +251,7 @@ export default function App() {
           <div className="brand-lockup"><div className="eyebrow">IA EMPRESARIAL · WORKSPACE</div><h1>{officeTitle}</h1><p>{activeTab === 'office' ? 'Coordenação de tarefas, agentes especialistas e revisão.' : 'Configurações opcionais e proteções obrigatórias.'}</p></div>
           <div className={`api-pill ${apiOnline ? 'ok' : apiOnline === false ? 'bad' : ''}`}><span className="connection-dot" />{apiOnline ? 'API conectada' : apiOnline === false ? 'API offline' : 'A verificar API'}</div>
         </header>
-        {activeTab === 'office' ? <AgentOffice token={token} apiOnline={apiOnline} /> : <PermissionsView token={token} />}
+        {activeTab === 'office' ? <AgentOffice token={token} apiOnline={apiOnline} /> : activeTab === 'permissions' ? <PermissionsView token={token} /> : <ConnectionsView />}
       </main>
     </div>;
   }
@@ -261,6 +263,7 @@ export default function App() {
         <a className={`rail-link ${activeTab === 'home' ? 'selected' : ''}`} href="#top" title="Escritório" onClick={() => setActiveTab('home')}><span>▦</span><small>Escritório</small></a>
         <button type="button" className="rail-link" title="Escritório de IAs" onClick={() => setActiveTab('office')}><span>♟</span><small>Agentes IA</small></button>
         <button type="button" className="rail-link" title="Permissões" onClick={() => setActiveTab('permissions')}><span>⚙</span><small>Permissões</small></button>
+        <button type="button" className="rail-link" title="Conexões de IA" onClick={() => setActiveTab('connections')}><span>↔</span><small>Conexões</small></button>
         <a className="rail-link" href="#conversation" title="Conversa" onClick={() => setActiveTab('home')}><span>▤</span><small>Conversa</small></a>
         <a className="rail-link" href="#skills" title="Capacidades"><span>⌘</span><small>Skills</small></a>
         <a className="rail-link" href="#human-tasks" title="Minhas tarefas"><span>✓</span><small>Tarefas</small></a>
