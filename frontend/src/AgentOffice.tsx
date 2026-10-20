@@ -57,9 +57,10 @@ export function AgentOffice({ token, apiOnline, llmReady }: { token: string; api
 
     <div style={panelStyle}>
       <div className="panel-heading"><div><span className="section-kicker">NÚCLEO DE COORDENAÇÃO</span><h2>Nova missão</h2></div></div>
+      {llmReady === false && <p role="status" style={{ color: '#f6ce89' }}>Configure um provedor e sua chave secreta no backend antes de iniciar uma missão.</p>}
       {!token.trim() ? <p style={{ color: 'var(--muted)' }}>Informe o token administrativo no painel Capacidades da tela inicial para criar e acompanhar execuções.</p> : <>
         <label className="field">Objetivo para o CEO<textarea value={goal} maxLength={4000} onChange={e => setGoal(e.target.value)} placeholder="Ex.: pesquise o mercado, compare opções e entregue um plano de implementação." /></label>
-        <button type="button" style={buttonStyle} disabled={busy || !goal.trim()} onClick={() => { const value = goal.trim(); setGoal(''); void act(() => createAgentRun(value, token)); }}>Planejar e executar</button>
+        <button type="button" style={buttonStyle} disabled={busy || !goal.trim() || llmReady === false} onClick={() => { const value = goal.trim(); setGoal(''); void act(() => createAgentRun(value, token)); }}>Planejar e executar</button>
       </>}
       {error && <p role="alert" style={{ color: '#f6a5a5', marginTop: 12 }}>{error}</p>}
     </div>
