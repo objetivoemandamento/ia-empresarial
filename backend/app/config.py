@@ -44,6 +44,7 @@ class Settings(BaseSettings):
             if router_ready:
                 import json
                 import os
+import re
                 from urllib.parse import urlparse
                 try:
                     models = json.loads(self.ai_router_models_json)
@@ -57,6 +58,8 @@ class Settings(BaseSettings):
                         continue
                     required = (item.get("id"), item.get("base_url"), item.get("model"), item.get("api_key_env"))
                     if not all(isinstance(value, str) and value.strip() for value in required):
+                        continue
+                    if not re.fullmatch(r"[A-Z][A-Z0-9_]*(?:_API_KEY|_API_TOKEN)", item["api_key_env"].strip()):
                         continue
                     parsed_url = urlparse(item["base_url"])
                     if parsed_url.scheme not in {"https", "http"} or not parsed_url.netloc or parsed_url.username or parsed_url.password:
