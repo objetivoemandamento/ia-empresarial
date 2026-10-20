@@ -6,7 +6,6 @@ import tempfile
 import threading
 from pathlib import Path
 from pydantic import BaseModel, ConfigDict, Field
-from pydantic import BaseModel, ConfigDict, Field
 from typing import Annotated
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile, Depends
 from starlette.concurrency import run_in_threadpool
@@ -17,7 +16,6 @@ from .llm import LLMEngine, LLMUnavailable
 from .repository_manager import SkillManager, SkillError
 from .schemas import ChatRequest, ChatResponse
 from .security import UnsafeArchive
-from .agent_orchestrator import AgentOrchestrator, AgentRunError
 from .agent_orchestrator import AgentOrchestrator, AgentRunError
 from .human_tasks import (
     HumanTaskStore, TaskCreate, TaskUpdate, TaskDecision, TaskCompletion,
@@ -103,64 +101,6 @@ async def patch_policies(changes: PolicyChanges):
         temporary.replace(POLICY_FILE)
     return policies_response()
 
-
-
-POLICY_FILE = settings.data_dir / "policies.json"
-POLICY_LOCK = threading.RLock()
-DEFAULT_POLICIES = {
-    "voice_enabled": True,
-    "approved_skills_enabled": True,
-    "prime_sandbox_enabled": False,
-    "external_network_enabled": False,
-    "optional_telemetry_enabled": True,
-}
-PROTECTED_CONTROLS = [
-    {"key": "financial_actions", "title": "Transferências, pagamentos e saques bloqueados", "enabled": True},
-    {"key": "bank_data_changes", "title": "Alterações de dados bancários bloqueadas", "enabled": True},
-    {"key": "authentication", "title": "Autenticação obrigatória", "enabled": True},
-    {"key": "security_audit", "title": "Auditoria de segurança obrigatória", "enabled": True},
-    {"key": "untrusted_code", "title": "Código não confiável exige isolamento e revisão", "enabled": True},
-]
-
-
-class PolicyChanges(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    voice_enabled: bool | None = None
-    approved_skills_enabled: bool | None = None
-    prime_sandbox_enabled: bool | None = None
-    external_network_enabled: bool | None = None
-    optional_telemetry_enabled: bool | None = None
-
-
-def read_policies() -> dict:
-    with POLICY_LOCK:
-        try:
-            stored = json.loads(POLICY_FILE.read_text(encoding="utf-8"))
-        except (OSError, json.JSONDecodeError):
-            stored = {}
-        return {**DEFAULT_POLICIES, **{k: v for k, v in stored.items() if k in DEFAULT_POLICIES}}
-
-
-def policies_response() -> dict:
-    return {**read_policies(), "protected_controls": PROTECTED_CONTROLS}
-
-
-@app.get("/api/policies")
-async def get_policies():
-    return policies_response()
-
-
-@app.patch("/api/policies", dependencies=[Depends(require_admin)])
-async def patch_policies(changes: PolicyChanges):
-    update = changes.model_dump(exclude_none=True)
-    with POLICY_LOCK:
-        current = read_policies()
-        current.update(update)
-        POLICY_FILE.parent.mkdir(parents=True, exist_ok=True)
-        temporary = POLICY_FILE.with_suffix(".tmp")
-        temporary.write_text(json.dumps(current, indent=2), encoding="utf-8")
-        temporary.replace(POLICY_FILE)
-    return policies_response()
 
 
 @app.get("/api/health")
@@ -332,85 +272,6 @@ async def human_task_history(task_id: str):
 
 # ---- CEO -> agentes especialistas -> revisão -> entrega ----
 agent_orchestrator = AgentOrchestrator(settings.data_dir / "agent_runs.sqlite3", lambda system, user: llm.complete(system, user), read_policies)
-agent_orchestrator.recover_interrupted()
-_background_runs: set[asyncio.Task] = set()
-
-
-class AgentRunCreate(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    goal: str = Field(min_length=1, max_length=4000)
-
-
-class AgentApprovalDecision(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-    approve: bool
-
-
-async def _process_agent_run(run_id: int) -> None:
-    try:
-        await agent_orchestrator.process(run_id)
-    except Exception as exc:
-        agent_orchestrator._status(run_id, "failed", "Erro interno: " + exc.__class__.__name__)
-
-
-def _schedule_agent_run(run_id: int) -> None:
-    task = asyncio.create_task(_process_agent_run(run_id))
-    _background_runs.add(task)
-    task.add_done_callback(_background_runs.discard)
-
-
-@app.post("/api/agent-runs", status_code=202, dependencies=[Depends(require_admin)])
-async def create_agent_run(body: AgentRunCreate):
-    try:
-        run = agent_orchestrator.create(body.goal)
-    except AgentRunError as exc:
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
-    _schedule_agent_run(run["id"])
-    return run
-
-
-@app.get("/api/agent-runs", dependencies=[Depends(require_admin)])
-async def list_agent_runs():
-    return {"runs": agent_orchestrator.list()}
-
-
-@app.get("/api/agent-runs/{run_id}", dependencies=[Depends(require_admin)])
-async def get_agent_run(run_id: int):
-    try:
-        return agent_orchestrator.get(run_id)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail="Execução não encontrada") from exc
-
-
-@app.post("/api/agent-runs/{run_id}/retry", status_code=202, dependencies=[Depends(require_admin)])
-async def retry_agent_run(run_id: int):
-    try:
-        run = agent_orchestrator.retry(run_id)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail="Execução não encontrada") from exc
-    except AgentRunError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    _schedule_agent_run(run_id)
-    return run
-
-
-@app.post("/api/agent-approvals/{approval_id}/decision", dependencies=[Depends(require_admin)])
-async def decide_agent_approval(approval_id: int, body: AgentApprovalDecision):
-    try:
-        run = agent_orchestrator.decide(approval_id, body.approve)
-    except KeyError as exc:
-        raise HTTPException(status_code=404, detail="Aprovação não encontrada") from exc
-    except AgentRunError as exc:
-        raise HTTPException(status_code=409, detail=str(exc)) from exc
-    _schedule_agent_run(run["id"])
-    return run
-
-# ---- CEO -> agentes especialistas -> revisão -> entrega ----
-agent_orchestrator = AgentOrchestrator(
-    settings.data_dir / "agent_runs.sqlite3",
-    lambda system, user: llm.complete(system, user),
-    read_policies,
-)
 agent_orchestrator.recover_interrupted()
 _background_runs: set[asyncio.Task] = set()
 
