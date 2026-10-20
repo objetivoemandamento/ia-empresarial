@@ -45,5 +45,5 @@ jobs:
         with:
           node-version: '22'
       - run: npm --prefix frontend install --no-audit --no-fund
-      - run: npx --prefix frontend playwright install --with-deps chromium
-      - run: npm --prefix frontend run test:e2e
+      - run: cd frontend && npx playwright install --with-deps chromium
+      - run: cd frontend && npm run test:e2e
