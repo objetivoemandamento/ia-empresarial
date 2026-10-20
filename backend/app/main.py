@@ -42,11 +42,7 @@ def require_admin(authorization: Annotated[str | None, Header()] = None) -> None
 
 @app.get("/api/health")
 async def health():
-    llm_ready = bool(
-        settings.llm_base_url.strip()
-        and settings.llm_api_key.strip()
-        and settings.llm_model.strip()
-    )
+    llm_ready = llm.is_ready
     return {
         "ok": True,
         "language_default": "pt",
