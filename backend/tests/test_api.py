@@ -204,3 +204,49 @@ def test_production_settings_require_llm_configuration():
             app_env="production", admin_token="a" * 40,
             llm_base_url="", llm_api_key="", llm_model="",
         )
+
+    
+def test_production_router_requires_configured_secret_and_https(monkeypatch):
+    router_json = json.dumps([{
+        "id": "groq", "base_url": "https://api.groq.com/openai/v1", "model": "model-id",
+        "api_key_env": "TEST_PROD_GROQ_API_KEY", "tasks": ["general"]
+    }])
+    monkeypatch.delenv("TEST_PROD_GROQ_API_KEY", raising=False)
+    with pytest.raises(ValueError, match="API key environment variable"):
+        Settings(app_env="production", admin_token="b" * 40, ai_router_models_json=router_json)
+    monkeypatch.setenv("TEST_PROD_GROQ_API_KEY", "test-only-key")
+    assert Settings(app_env="production", admin_token="c" * 40, ai_router_models_json=router_json)
+
+    insecure = json.dumps([{
+        "id": "insecure", "base_url": "http://provider.example/v1", "model": "model-id",
+        "api_key_env": "TEST_PROD_GROQ_API_KEY", "tasks": ["general"]
+    }])
+    with pytest.raises(ValueError, match="API key environment variable"):
+        Settings(app_env="production", admin_token="d" * 40, ai_router_models_json=insecure)
+
+def test_production_legacy_llm_rejects_remote_http_and_embedded_credentials():
+    common = {"app_env": "production", "admin_token": "e" * 40, "llm_api_key": "test-key", "llm_model": "model-id"}
+    with pytest.raises(ValueError, match="HTTPS"):
+        Settings(**common, llm_base_url="http://remote.example/v1")
+    with pytest.raises(ValueError, match="embedded credentials"):
+        Settings(**common, llm_base_url="https://user:pass@provider.example/v1")
+
+@pytest.mark.parametrize("router_json,expected", [
+    ("{", "valid JSON"),
+    ("[]", "non-empty JSON array"),
+    (json.dumps([{"id": "bad", "base_url": "https://provider.example/v1", "model": "m", "api_key_env": "PATH"}]), "API key environment variable"),
+    (json.dumps([{"id": "bad", "base_url": "file:///etc/passwd", "model": "m", "api_key_env": "TEST_API_KEY"}]), "API key environment variable"),
+])
+def test_production_router_rejects_invalid_router_configuration(monkeypatch, router_json, expected):
+    monkeypatch.setenv("PATH", "/not-a-provider-key")
+    monkeypatch.delenv("TEST_API_KEY", raising=False)
+    with pytest.raises(ValueError, match=expected):
+        Settings(app_env="production", admin_token="f" * 40,
+                 allowed_origins="https://frontend.example", ai_router_models_json=router_json)
+
+
+def test_production_requires_allowed_origins_even_with_legacy_llm():
+    with pytest.raises(ValueError, match="ALLOWED_ORIGINS"):
+        Settings(app_env="production", admin_token="g" * 40, allowed_origins="",
+                 llm_base_url="https://provider.example/v1", llm_api_key="key", llm_model="model")
+
