@@ -51,7 +51,7 @@ export function AgentOffice({ token, apiOnline, llmReady }: { token: string; api
     <div style={{ marginBottom: 20 }}>
       <span className="section-kicker">CEO → AGENTES → REVISÃO → ENTREGA</span>
       <h2 style={{ fontFamily: 'Space Grotesk', fontSize: 28, margin: '8px 0' }}>Escritório de IAs</h2>
-      <p style={{ color: 'var(--muted)', lineHeight: 1.6, maxWidth: 760 }}>O CEO divide objetivos em tarefas verificáveis. Até quatro tarefas independentes podem ser processadas em paralelo. Publicação, envio, exclusão, rede externa e código aguardam autorização; operações financeiras ficam bloqueadas. A aprovação apenas libera a etapa textual: nenhuma ação externa ou execução de código é realizada nesta versão.</p>
+      <p style={{ color: 'var(--muted)', lineHeight: 1.6, maxWidth: 760 }}>O CEO divide objetivos em tarefas verificáveis. Até quatro tarefas independentes podem ser processadas em paralelo. Publicação, envio, exclusão, rede externa e código aguardam autorização; operações financeiras ficam bloqueadas.</p>
       <p style={{ color: apiOnline ? 'var(--green)' : '#f6ce89', fontSize: 12 }}>{apiOnline ? 'API conectada' : apiOnline === false ? 'API indisponível' : 'Verificando API'} · {llmReady ? 'Modelo configurado' : llmReady === false ? 'Modelo ainda não configurado' : 'Verificando modelo'}. A aprovação apenas libera a etapa textual: nenhuma ação externa ou execução de código é realizada nesta versão.</p>
     </div>
 
