@@ -113,7 +113,7 @@ async def health():
         "llm_ready": llm_ready,
         "llm_mode": "configured" if llm_ready else "demo",
         "llm_model": (settings.llm_model or ("multi-provider-router" if settings.ai_router_models_json.strip() else None)) if llm_ready else None,
-        "transcription_ready": bool(settings.openai_api_key.strip()),
+        "transcription_ready": bool(settings.openai_api_key.strip()) and read_policies()["voice_enabled"],
         "agent_orchestrator_ready": llm.is_ready,
     }
 
