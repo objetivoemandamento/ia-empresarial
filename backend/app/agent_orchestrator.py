@@ -37,12 +37,21 @@ EXECUTOR = "ROLE:EXECUTOR. Especialidade: {specialty}. Produza apenas o resultad
 REVIEWER = 'ROLE:REVIEWER. Revise precisão, completude e afirmações de execução. Responda JSON: {"approved":true|false,"notes":"..."}'
 DELIVERY = "ROLE:CEO_DELIVERY. Consolide os resultados aprovados com clareza. Não invente fatos nem ações executadas."
 SPECIALISTS = {
-    "Engenharia": ("código", "codigo", "bug", "api", "python", "deploy"),
-    "Pesquisa": ("pesquisa", "fontes", "mercado", "evidência", "evidencia"),
-    "Marketing": ("marketing", "campanha", "divulgação", "divulgacao", "vendas"),
-    "Segurança": ("segurança", "seguranca", "permissão", "permissao", "risco"),
-    "Qualidade": ("teste", "testes", "validar", "homologação", "homologacao"),
-    "Estratégia": ("estratégia", "estrategia", "plano", "prioridade", "objetivo"),
+    "Estratégia": ("estratégia", "estrategia", "plano", "prioridade", "objetivo", "direção"),
+    "Pesquisa": ("pesquisa", "fontes", "mercado", "evidência", "evidencia", "benchmark"),
+    "Engenharia": ("código", "codigo", "bug", "api", "python", "deploy", "script"),
+    "Qualidade": ("teste", "testes", "validar", "homologação", "homologacao", "qa"),
+    "Segurança": ("segurança", "seguranca", "permissão", "permissao", "risco", "vulnerabilidade"),
+    "Produto": ("produto", "requisito", "funcionalidade", "roadmap", "escopo"),
+    "UX e acessibilidade": ("interface", "ux", "acessibilidade", "tela", "usabilidade", "mobile", "design"),
+    "Marketing": ("marketing", "campanha", "divulgação", "divulgacao", "conteúdo", "conteudo", "marca"),
+    "Vendas e parcerias": ("venda", "vendas", "cliente", "prospecção", "prospeccao", "parceria", "conversão"),
+    "Análise financeira": ("financeiro", "orçamento", "orcamento", "custo", "receita", "margem", "preço", "preco"),
+    "Operações": ("operação", "operacao", "processo", "workflow", "rotina", "procedimento"),
+    "Dados e métricas": ("dados", "métrica", "metrica", "indicador", "analytics", "relatório", "relatorio"),
+    "Compliance e privacidade": ("conformidade", "compliance", "lgpd", "privacidade", "regulatório", "regulatorio", "contrato"),
+    "Documentação": ("documentação", "documentacao", "manual", "readme", "instrução", "instrucao", "documentar"),
+    "Integrações": ("integração", "integracao", "conector", "mcp", "rea", "webhook", "provedor", "modelo de ia"),
 }
 
 def _json(text: str) -> dict:
