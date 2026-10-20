@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app import main
+from app.audio import AudioUnavailable
 from app.llm import LLMUnavailable
 from app.schemas import SkillSummary
 from app.repository_manager import SkillError
@@ -57,11 +58,15 @@ class FakeSkillManager:
         return self.skill
 
     def approve(self, skill_id):
+        if skill_id == "conflict":
+            raise SkillError("Skill already reviewed")
         if skill_id != self.skill.id:
             raise KeyError(skill_id)
         return self.skill.model_copy(update={"status": "active"})
 
     def reject(self, skill_id):
+        if skill_id == "conflict":
+            raise SkillError("Skill already reviewed")
         if skill_id != self.skill.id:
             raise KeyError(skill_id)
         return self.skill.model_copy(update={"status": "rejected"})
@@ -162,3 +167,52 @@ def test_repository_upload_rejects_too_large_files(client, monkeypatch):
         files={"file": ("skill.zip", b"too large", "application/zip")},
     )
     assert response.status_code == 413
+
+def test_admin_rejects_wrong_token_and_maps_unexpected_upload_error(client):
+    api, llm, manager = client
+    wrong = {"Authorization": "Bearer wrong-token"}
+    assert api.post("/api/repositories/demo-skill/approve", headers=wrong).status_code == 403
+    manager.install_error = RuntimeError("internal detail")
+    response = api.post(
+        "/api/repositories/upload",
+        headers={"Authorization": "Bearer test-admin-token"},
+        files={"file": ("skill.zip", b"x", "application/zip")},
+    )
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Invalid skill package: RuntimeError"
+
+
+def test_repository_review_conflicts_are_mapped_to_409(client):
+    api, llm, manager = client
+    headers = {"Authorization": "Bearer test-admin-token"}
+    assert api.post("/api/repositories/conflict/approve", headers=headers).status_code == 409
+    assert api.post("/api/repositories/missing/reject", headers=headers).status_code == 404
+    assert api.post("/api/repositories/conflict/reject", headers=headers).status_code == 409
+
+
+def test_audio_transcription_api_handles_empty_invalid_large_and_provider_failure(client, monkeypatch):
+    api, llm, manager = client
+    empty = api.post("/api/audio/transcribe", data={"language": "pt"}, files={"file": ("empty.webm", b"", "audio/webm")})
+    assert empty.status_code == 400
+    invalid_language = api.post("/api/audio/transcribe", data={"language": "xx"}, files={"file": ("audio.webm", b"x", "audio/webm")})
+    assert invalid_language.status_code == 422
+
+    async def provider_error(*args, **kwargs):
+        raise AudioUnavailable("provider unavailable")
+    monkeypatch.setattr(main, "transcribe_audio", provider_error)
+    unavailable = api.post("/api/audio/transcribe", data={"language": "pt"}, files={"file": ("audio.webm", b"x", "audio/webm")})
+    assert unavailable.status_code == 503
+
+    async def provider_success(*args, **kwargs):
+        return "transcribed"
+    monkeypatch.setattr(main, "transcribe_audio", provider_success)
+    success = api.post("/api/audio/transcribe", data={"language": "en"}, files={"file": ("audio.webm", b"x", "audio/webm")})
+    assert success.status_code == 200
+    assert success.json() == {"text": "transcribed", "language": "en"}
+
+    oversized = api.post(
+        "/api/audio/transcribe", data={"language": "pt"},
+        files={"file": ("audio.webm", b"x" * (25 * 1024 * 1024 + 1), "audio/webm")},
+    )
+    assert oversized.status_code == 413
+
