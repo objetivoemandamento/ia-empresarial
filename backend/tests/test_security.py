@@ -211,3 +211,38 @@ def test_skill_approval_and_rejection_failures_restore_pending_state(tmp_path, m
     with pytest.raises(ValueError, match="pending review"):
         manager.approve(first.id)
 
+def test_directory_entries_are_normalized_and_extracted(tmp_path):
+    archive_path = make_zip(tmp_path / "directories.zip", {
+        "manifest.json": manifest(), "docs/": "", "docs/readme.txt": "hello",
+    })
+    destination = tmp_path / "extracted"
+    safe_extract(archive_path, destination, settings(tmp_path))
+    assert (destination / "docs").is_dir()
+    assert (destination / "docs" / "readme.txt").read_text(encoding="utf-8") == "hello"
+
+
+def test_rejects_encrypted_archive_members(tmp_path):
+    archive_path = make_zip(tmp_path / "encrypted.zip", {"manifest.json": manifest()})
+    raw = bytearray(archive_path.read_bytes())
+    local_header = raw.find(b"PK\\x03\\x04")
+    central_header = raw.find(b"PK\\x01\\x02")
+    assert local_header >= 0 and central_header >= 0
+    raw[local_header + 6] |= 0x01
+    raw[central_header + 8] |= 0x01
+    archive_path.write_bytes(raw)
+    with pytest.raises(UnsafeArchive, match="Encrypted ZIP"):
+        inspect_zip(archive_path, settings(tmp_path))
+
+
+def test_extraction_failure_removes_partial_destination(tmp_path, monkeypatch):
+    archive_path = make_zip(tmp_path / "partial.zip", {
+        "manifest.json": manifest(), "docs/readme.txt": "hello",
+    })
+    destination = tmp_path / "partial-out"
+    def fail_copy(*args, **kwargs):
+        raise OSError("simulated disk failure")
+    monkeypatch.setattr("app.security.shutil.copyfileobj", fail_copy)
+    with pytest.raises(OSError, match="simulated disk failure"):
+        safe_extract(archive_path, destination, settings(tmp_path))
+    assert not destination.exists()
+
