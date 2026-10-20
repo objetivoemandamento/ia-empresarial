@@ -104,3 +104,11 @@ def test_router_ignores_invalid_priority_and_rejects_remote_http(monkeypatch):
     assert [item["id"] for item in models] == ["bad-priority"]
     assert models[0]["priority"] == 100
 
+def test_router_refuses_non_secret_environment_variable_names(monkeypatch):
+    monkeypatch.setenv("PATH", "/not-a-provider-secret")
+    settings = Settings(ai_router_models_json=json.dumps([{
+        "id": "unsafe", "base_url": "https://provider.example/v1", "model": "model-id",
+        "api_key_env": "PATH", "tasks": ["general"]
+    }]))
+    assert AIModelRouter(settings)._models() == []
+
