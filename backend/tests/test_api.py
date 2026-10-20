@@ -223,3 +223,11 @@ def test_production_router_requires_configured_secret_and_https(monkeypatch):
     }])
     with pytest.raises(ValueError, match="API key environment variable"):
         Settings(app_env="production", admin_token="d" * 40, ai_router_models_json=insecure)
+
+def test_production_legacy_llm_rejects_remote_http_and_embedded_credentials():
+    common = {"app_env": "production", "admin_token": "e" * 40, "llm_api_key": "test-key", "llm_model": "model-id"}
+    with pytest.raises(ValueError, match="HTTPS"):
+        Settings(**common, llm_base_url="http://remote.example/v1")
+    with pytest.raises(ValueError, match="embedded credentials"):
+        Settings(**common, llm_base_url="https://user:pass@provider.example/v1")
+
