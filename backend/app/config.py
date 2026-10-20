@@ -1,7 +1,9 @@
 from functools import lru_cache
 from pathlib import Path
+
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
+
 
 class Settings(BaseSettings):
     app_env: str = "development"
@@ -17,6 +19,12 @@ class Settings(BaseSettings):
     llm_base_url: str = ""
     llm_api_key: str = ""
     llm_model: str = ""
+    llm_model_general: str = ""
+    llm_model_reasoning: str = ""
+    llm_model_coding: str = ""
+    llm_model_research: str = ""
+    llm_model_reverse_engineering: str = ""
+    llm_model_marketing: str = ""
     openai_api_key: str = ""
     transcription_model: str = "whisper-1"
 
@@ -36,6 +44,7 @@ class Settings(BaseSettings):
     @property
     def origins(self) -> list[str]:
         return [item.strip() for item in self.allowed_origins.split(",") if item.strip()]
+
 
 @lru_cache
 def get_settings() -> Settings:
