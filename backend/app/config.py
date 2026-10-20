@@ -1,5 +1,6 @@
 from functools import lru_cache
 from pathlib import Path
+import re
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -44,7 +45,6 @@ class Settings(BaseSettings):
             if router_ready:
                 import json
                 import os
-import re
                 from urllib.parse import urlparse
                 try:
                     models = json.loads(self.ai_router_models_json)
