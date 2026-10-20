@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { createAgentRun, decideAgentApproval, getAgentRun, listAgentRuns, retryAgentRun } from './agentRuns';
-import type { AgentRun } from './agentRuns';
+import type { AgentRun, AgentRunSummary } from './agentRuns';
 
 const LABEL: Record<string, string> = {
   queued: 'Na fila', planning: 'CEO planejando', running: 'Em execução',
@@ -17,7 +17,7 @@ const buttonStyle = { border: '1px solid var(--line)', background: 'var(--panel-
 
 export function AgentOffice({ token, apiOnline, llmReady }: { token: string; apiOnline: boolean | null; llmReady: boolean | null }) {
   const [goal, setGoal] = useState('');
-  const [runs, setRuns] = useState<AgentRun[]>([]);
+  const [runs, setRuns] = useState<AgentRunSummary[]>([]);
   const [detail, setDetail] = useState<AgentRun | null>(null);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
