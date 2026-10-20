@@ -20,20 +20,20 @@ def test_router_rejects_invalid_json():
 
 
 def test_router_skips_models_without_api_keys(monkeypatch):
-    monkeypatch.delenv("TEST_PROVIDER_KEY", raising=False)
+    monkeypatch.delenv("TEST_PROVIDER_API_KEY", raising=False)
     settings = Settings(ai_router_models_json=json.dumps([{
         "id": "test", "provider": "test", "base_url": "https://example.invalid/v1",
-        "model": "test-model", "api_key_env": "TEST_PROVIDER_KEY", "tasks": ["general"]
+        "model": "test-model", "api_key_env": "TEST_PROVIDER_API_KEY", "tasks": ["general"]
     }]))
     router = AIModelRouter(settings)
     assert router._models() == []
 
 
 def test_router_reads_secret_from_environment(monkeypatch):
-    monkeypatch.setenv("TEST_PROVIDER_KEY", "secret-not-in-config")
+    monkeypatch.setenv("TEST_PROVIDER_API_KEY", "secret-not-in-config")
     settings = Settings(ai_router_models_json=json.dumps([{
         "id": "test", "provider": "test", "base_url": "https://example.invalid/v1",
-        "model": "test-model", "api_key_env": "TEST_PROVIDER_KEY", "tasks": ["general"]
+        "model": "test-model", "api_key_env": "TEST_PROVIDER_API_KEY", "tasks": ["general"]
     }]))
     models = AIModelRouter(settings)._models()
     assert len(models) == 1
@@ -74,13 +74,13 @@ class FakeAsyncClient:
 
 
 def test_router_falls_back_after_provider_failure(monkeypatch):
-    monkeypatch.setenv("PRIMARY_TEST_KEY", "primary-secret")
-    monkeypatch.setenv("FALLBACK_TEST_KEY", "fallback-secret")
+    monkeypatch.setenv("PRIMARY_TEST_API_KEY", "primary-secret")
+    monkeypatch.setenv("FALLBACK_TEST_API_KEY", "fallback-secret")
     config = json.dumps([
         {"id": "primary", "base_url": "https://primary.example/v1", "model": "primary-model",
-         "api_key_env": "PRIMARY_TEST_KEY", "tasks": ["general"], "priority": 1},
+         "api_key_env": "PRIMARY_TEST_API_KEY", "tasks": ["general"], "priority": 1},
         {"id": "fallback", "base_url": "https://fallback.example/v1", "model": "fallback-model",
-         "api_key_env": "FALLBACK_TEST_KEY", "tasks": ["general"], "priority": 2},
+         "api_key_env": "FALLBACK_TEST_API_KEY", "tasks": ["general"], "priority": 2},
     ])
     FakeAsyncClient.responses = [httpx.ConnectError("offline"), FakeResponse("fallback answer")]
     FakeAsyncClient.requests = []
@@ -93,12 +93,12 @@ def test_router_falls_back_after_provider_failure(monkeypatch):
 
 
 def test_router_ignores_invalid_priority_and_rejects_remote_http(monkeypatch):
-    monkeypatch.setenv("TEST_ROUTER_KEY", "test-secret")
+    monkeypatch.setenv("TEST_ROUTER_API_KEY", "test-secret")
     config = json.dumps([
         {"id": "bad-priority", "base_url": "https://safe.example/v1", "model": "safe-model",
-         "api_key_env": "TEST_ROUTER_KEY", "tasks": ["general"], "priority": "invalid"},
+         "api_key_env": "TEST_ROUTER_API_KEY", "tasks": ["general"], "priority": "invalid"},
         {"id": "insecure", "base_url": "http://remote.example/v1", "model": "remote-model",
-         "api_key_env": "TEST_ROUTER_KEY", "tasks": ["general"], "priority": 1},
+         "api_key_env": "TEST_ROUTER_API_KEY", "tasks": ["general"], "priority": 1},
     ])
     models = AIModelRouter(Settings(ai_router_models_json=config))._models()
     assert [item["id"] for item in models] == ["bad-priority"]
