@@ -85,7 +85,7 @@ export function AgentOffice({ token, apiOnline, llmReady }: { token: string; api
       <div className="panel-heading"><div><span className="section-kicker">MISSÃO #{detail.id}</span><h2>{LABEL[detail.status] ?? detail.status}</h2></div></div>
       {detail.error && <p role="alert" style={{ color: '#f6a5a5' }}>{detail.error}</p>}
       {detail.tasks.map(task => <div key={task.id} className="activity-row"><div style={{ flex: 1 }}>
-        <strong>{task.title}</strong><p>{LABEL[task.status] ?? task.status} · tentativas {task.attempts}</p>
+        <strong>{task.title}</strong><p>{task.specialist} · {LABEL[task.status] ?? task.status} · tentativas {task.attempts}</p>
         {task.error && <p role="alert">{task.error}</p>}{task.output && <details><summary>Ver resultado</summary><pre style={{ whiteSpace: 'pre-wrap', overflowWrap: 'anywhere' }}>{task.output}</pre></details>}
       </div></div>)}
       {detail.approvals.filter(a => a.status === 'pending').map(a => <div key={a.id} className="activity-row"><div style={{ flex: 1 }}><strong>Aprovação necessária: {a.action}</strong><p>{a.detail}</p></div>
