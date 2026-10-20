@@ -115,7 +115,6 @@ async def health():
         "llm_model": (settings.llm_model or ("multi-provider-router" if settings.ai_router_models_json.strip() else None)) if llm_ready else None,
         "transcription_ready": bool(settings.openai_api_key.strip()),
         "agent_orchestrator_ready": llm.is_ready,
-        "agent_orchestrator_ready": llm.is_ready,
     }
 
 @app.post("/api/repositories/upload")
@@ -204,8 +203,6 @@ async def transcribe(
     file: UploadFile = File(...),
     language: str = Form("pt"),
 ):
-    if not read_policies()["voice_enabled"]:
-        raise HTTPException(status_code=403, detail="Recursos de voz desativados nas permissões")
     if not read_policies()["voice_enabled"]:
         raise HTTPException(status_code=403, detail="Recursos de voz desativados nas permissões")
     if language not in ALLOWED_LANGUAGES:
