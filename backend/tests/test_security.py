@@ -20,7 +20,7 @@ def make_zip(path: Path, entries: dict[str, str]) -> Path:
 def manifest() -> str:
     return json.dumps({
         "schema_version": "1.0", "id": "hello-skill", "name": "Hello",
-        "version": "1.0.0", "description": "test skill", "languages": ["pt"],
+        "version": "1.0.0", "description": "test skill", "languages": ["pt"], "default_language": "pt",
         "tools": [{"name": "hello", "description": "hello tool",
                    "kind": "prompt_template", "template": "Hello {{input}}"}]
     })
