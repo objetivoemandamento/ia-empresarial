@@ -344,7 +344,7 @@ async def test_background_run_failure_is_recorded_and_task_is_cleaned(monkeypatc
 
 def test_json_parser_rejects_non_object_json():
     from app.agent_orchestrator import _json
-    with pytest.raises(ValueError, match="must be object|deve ser objeto"):
+    with pytest.raises(ValueError, match="sem JSON válido"):
         _json("[]")
 
 
