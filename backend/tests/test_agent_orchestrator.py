@@ -281,3 +281,64 @@ async def test_assigned_specialist_is_persisted_and_used_by_executor(tmp_path):
     assert result["tasks"][0]["specialist"] == "Engenharia"
     assert "Especialidade: Engenharia" in seen[0]
 
+def test_agent_run_detail_and_retry_error_mapping(api_client, monkeypatch):
+    headers = {"Authorization": "Bearer test-admin-token"}
+    assert api_client.get("/api/agent-runs/999", headers=headers).status_code == 404
+    store = main.agent_orchestrator
+    monkeypatch.setattr(store, "retry", lambda run_id: {"id": run_id, "status": "queued"})
+    retried = api_client.post("/api/agent-runs/7/retry", headers=headers)
+    assert retried.status_code == 202
+    assert retried.json()["id"] == 7
+
+    def missing(run_id):
+        raise KeyError(run_id)
+    monkeypatch.setattr(store, "retry", missing)
+    assert api_client.post("/api/agent-runs/999/retry", headers=headers).status_code == 404
+
+    def conflict(run_id):
+        raise AgentRunError("not retryable")
+    monkeypatch.setattr(store, "retry", conflict)
+    assert api_client.post("/api/agent-runs/7/retry", headers=headers).status_code == 409
+
+
+def test_agent_approval_route_maps_missing_and_conflicting_decisions(api_client, monkeypatch):
+    headers = {"Authorization": "Bearer test-admin-token"}
+    store = main.agent_orchestrator
+    monkeypatch.setattr(store, "decide", lambda approval_id, approve: {"id": 3, "status": "queued"})
+    success = api_client.post("/api/agent-approvals/1/decision", headers=headers, json={"approve": True})
+    assert success.status_code == 200
+    assert success.json()["status"] == "queued"
+
+    def missing(approval_id, approve):
+        raise KeyError(approval_id)
+    monkeypatch.setattr(store, "decide", missing)
+    assert api_client.post("/api/agent-approvals/99/decision", headers=headers, json={"approve": False}).status_code == 404
+
+    def conflict(approval_id, approve):
+        raise AgentRunError("already decided")
+    monkeypatch.setattr(store, "decide", conflict)
+    assert api_client.post("/api/agent-approvals/1/decision", headers=headers, json={"approve": True}).status_code == 409
+
+
+@pytest.mark.asyncio
+async def test_background_run_failure_is_recorded_and_task_is_cleaned(monkeypatch):
+    calls = []
+    event = asyncio.Event()
+    async def fail(run_id):
+        raise RuntimeError("private error")
+    def status(run_id, value, error=None, result=None):
+        calls.append((run_id, value, error))
+    monkeypatch.setattr(main.agent_orchestrator, "process", fail)
+    monkeypatch.setattr(main.agent_orchestrator, "_status", status)
+    main._background_runs.clear()
+    await main._process_agent_run(42)
+    assert calls == [(42, "failed", "Erro interno: RuntimeError")]
+
+    async def finish(run_id):
+        event.set()
+    monkeypatch.setattr(main.agent_orchestrator, "process", finish)
+    main._schedule_agent_run(43)
+    await asyncio.wait_for(event.wait(), timeout=1)
+    await asyncio.sleep(0)
+    assert not main._background_runs
+
