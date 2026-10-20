@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
 const PROVIDERS = [
   { id: 'groq', name: 'Groq', base: 'https://api.groq.com/openai/v1', key: 'https://console.groq.com/keys', hint: 'Use o ID exato de modelo mostrado no console.' },
@@ -17,11 +17,23 @@ export function ConnectionsView() {
   const [selected, setSelected] = useState('groq');
   const [modelDraft, setModelDraft] = useState('');
   const [selectedTasks, setSelectedTasks] = useState<string[]>(TASKS);
-  const [models, setModels] = useState<ModelConfig[]>([]);
+  const [models, setModels] = useState<ModelConfig[]>(() => {
+    try {
+      const saved = window.sessionStorage.getItem('ia-empresarial-router-models');
+      return saved ? JSON.parse(saved) as ModelConfig[] : [];
+    } catch { return []; }
+  });
   const [copied, setCopied] = useState(false);
   const provider = PROVIDERS.find(p => p.id === selected) ?? PROVIDERS[0];
   const keyEnv = `${provider.id.toUpperCase()}_API_KEY`;
   const configurationText = `AI_ROUTER_MODELS_JSON=${JSON.stringify(models)}\n${models.map(m => `${m.api_key_env}=COLOQUE_A_CHAVE_SECRETA_NO_RENDER`).join('\n')}`;
+
+  useEffect(() => {
+    try {
+      if (models.length) window.sessionStorage.setItem('ia-empresarial-router-models', JSON.stringify(models));
+      else window.sessionStorage.removeItem('ia-empresarial-router-models');
+    } catch { /* Storage is optional; the manual configuration remains visible during this view. */ }
+  }, [models]);
 
   function addModel() {
     if (!modelDraft.trim()) return;
