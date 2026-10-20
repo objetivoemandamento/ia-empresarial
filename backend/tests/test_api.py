@@ -231,3 +231,22 @@ def test_production_legacy_llm_rejects_remote_http_and_embedded_credentials():
     with pytest.raises(ValueError, match="embedded credentials"):
         Settings(**common, llm_base_url="https://user:pass@provider.example/v1")
 
+@pytest.mark.parametrize("router_json,expected", [
+    ("{", "valid JSON"),
+    ("[]", "non-empty JSON array"),
+    (json.dumps([{"id": "bad", "base_url": "https://provider.example/v1", "model": "m", "api_key_env": "PATH"}]), "API key environment variable"),
+    (json.dumps([{"id": "bad", "base_url": "file:///etc/passwd", "model": "m", "api_key_env": "TEST_API_KEY"}]), "API key environment variable"),
+])
+def test_production_router_rejects_invalid_router_configuration(monkeypatch, router_json, expected):
+    monkeypatch.setenv("PATH", "/not-a-provider-key")
+    monkeypatch.delenv("TEST_API_KEY", raising=False)
+    with pytest.raises(ValueError, match=expected):
+        Settings(app_env="production", admin_token="f" * 40,
+                 allowed_origins="https://frontend.example", ai_router_models_json=router_json)
+
+
+def test_production_requires_allowed_origins_even_with_legacy_llm():
+    with pytest.raises(ValueError, match="ALLOWED_ORIGINS"):
+        Settings(app_env="production", admin_token="g" * 40, allowed_origins="",
+                 llm_base_url="https://provider.example/v1", llm_api_key="key", llm_model="model")
+
