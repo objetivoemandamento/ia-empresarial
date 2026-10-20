@@ -239,3 +239,24 @@ def test_missing_run_and_approval_return_errors(tmp_path):
     with pytest.raises(KeyError):
         store.decide(999, True)
 
+def test_legacy_agent_task_database_migrates_specialist_column(tmp_path):
+    import sqlite3
+    db_path = tmp_path / "legacy.sqlite3"
+    connection = sqlite3.connect(db_path)
+    connection.execute(
+        "CREATE TABLE agent_tasks(id INTEGER PRIMARY KEY, run_id INTEGER NOT NULL, idx INTEGER NOT NULL, "
+        "title TEXT NOT NULL, instructions TEXT NOT NULL, action TEXT, status TEXT NOT NULL, "
+        "output TEXT, review TEXT, attempts INTEGER NOT NULL DEFAULT 0, error TEXT)"
+    )
+    connection.commit()
+    connection.close()
+
+    async def unused(system, user):
+        raise AssertionError("not called")
+
+    store = make_store(tmp_path, unused)
+    store.db.close()
+    migrated = AgentOrchestrator(db_path, unused, lambda: {})
+    columns = {row["name"] for row in migrated.db.execute("PRAGMA table_info(agent_tasks)")}
+    assert "specialist" in columns
+
